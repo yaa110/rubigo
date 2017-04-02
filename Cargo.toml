@@ -6,3 +6,4 @@ authors = ["Navid <yaa110@gmail.com>"]
 [dependencies]
 git2 = "0.6"
 serde_json = "0.9"
+clap = "2.22.2"
