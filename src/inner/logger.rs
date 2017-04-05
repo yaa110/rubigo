@@ -6,17 +6,19 @@ use std::fmt::Display;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum Verbosity {
-    HIGH, LOW, NONE
+    High,
+    Low,
+    None,
 }
 
 pub fn log_verbose<T: Display>(title: &str, msg: T, verb: &Verbosity) {
-    if *verb == Verbosity::HIGH {
+    if *verb == Verbosity::High {
         println!("[{}] {} {}", Fixed(8).paint(time::strftime("%T", &time::now()).unwrap_or(String::from("00:00:00"))), Yellow.paint(title), msg);
     }
 }
 
 pub fn log_error<T: Display>(err: T, verb: &Verbosity) {
-    if *verb != Verbosity::NONE {
+    if *verb != Verbosity::None {
         println!("{} {}", Red.paint("error:"), err);
     }
 }

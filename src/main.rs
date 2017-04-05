@@ -9,6 +9,7 @@ extern crate json;
 
 mod inner;
 mod controller;
+mod model;
 
 use clap::{Arg, App, SubCommand};
 use std::process;
@@ -135,11 +136,11 @@ fn main() {
             .about("Display information about this Rubigo project"))
         .get_matches();
 
-    let mut verb = Verbosity::LOW;
+    let mut verb = Verbosity::Low;
     if matches.is_present("verbose") {
-        verb = Verbosity::HIGH;
+        verb = Verbosity::High;
     } else if matches.is_present("quiet") {
-        verb = Verbosity::NONE;
+        verb = Verbosity::None;
     }
 
     match matches.subcommand_name() {
