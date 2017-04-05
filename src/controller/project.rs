@@ -1,6 +1,6 @@
 use inner::logger::{Verbosity, log_fatal, log_verbose, log_error};
 use std::path::Path;
-use std::fs::{create_dir, create_dir_all, remove_dir, remove_file};
+use std::fs::{create_dir, create_dir_all, remove_dir_all, remove_file};
 use std::fs::File;
 use std::io::prelude::*;
 use std::env::current_dir;
@@ -115,7 +115,7 @@ fn delete_init_project<T: Display>(err: T, path: &Path, verb: &Verbosity) {
 }
 
 fn delete_new_project<T: Display>(err: T, path: &Path, current_dir: &Path, verb: &Verbosity) {
-    match remove_dir(path) {
+    match remove_dir_all(path) {
         Ok(_) => log_verbose("Delete project", current_dir.to_str().unwrap_or("unknown"), verb),
         Err(e) => log_error(e, verb),
     }
