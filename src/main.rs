@@ -186,7 +186,7 @@ fn main() {
                 info::display()
             }
         },
-        Some("init") => project::init(&logger),
+        Some("init") => project::init(logger),
         Some("list") => {
             let list_matches = match matches.subcommand_matches("list") {
                 Some(args) => args,

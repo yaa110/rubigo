@@ -4,13 +4,14 @@ use ansi_term::Color::{Red, Fixed, Yellow};
 use std::process;
 use std::fmt::Display;
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum Verbosity {
     High,
     Low,
     None,
 }
 
+#[derive(Copy, Clone)]
 pub struct Logger {
     verbosity: Verbosity,
 }

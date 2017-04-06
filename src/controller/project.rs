@@ -6,8 +6,7 @@ use std::fmt::Display;
 use git2::Repository;
 use std::ffi::OsStr;
 use std::io::Write;
-use inner::json_helper;
-use inner::vendor::find_packages;
+use inner::{vendor, json_helper, helpers};
 
 pub fn new(name: &str, is_lib: bool, logger: &Logger) {
     let path = Path::new(name);
@@ -69,7 +68,7 @@ pub fn new(name: &str, is_lib: bool, logger: &Logger) {
     logger.verbose("Done", "Rubigo project has been created")
 }
 
-pub fn init(logger: &Logger) {
+pub fn init(logger: Logger) {
     let json_path = Path::new("rubigo.json");
     if json_path.exists() {
         logger.fatal("Rubigo project has already been initialized")
@@ -79,31 +78,58 @@ pub fn init(logger: &Logger) {
     if lock_path.exists() {
         match remove_file(lock_path) {
             Ok(_) => logger.verbose("Delete file", "rubigo.lock"),
-            Err(e) => delete_init_project(e, json_path, logger),
+            Err(e) => delete_init_project(e, json_path, &logger),
         }
     }
-
-    let parent_name = match json_path.parent() {
-        Some(folder) => folder.file_name().unwrap_or(OsStr::new("unknown")),
-        None => OsStr::new("unknown"),
-    }.to_str().unwrap_or("unknown");
+    let parent_name = helpers::get_current_dir();
     let vendor_path = Path::new("vendor");
     if !vendor_path.exists() {
-        match json_helper::write(json_path, parent_name, None) {
-            Ok(_) => {
-                logger.verbose("Create file", "rubigo.json");
-            },
-            Err(e) => delete_init_project(e, json_path, logger),
+        match json_helper::write(json_path, parent_name.as_str(), None) {
+            Ok(_) => logger.verbose("Create file", "rubigo.json"),
+            Err(e) => delete_init_project(e, json_path, &logger),
         }
 
         match create_dir(vendor_path) {
             Ok(_) => logger.verbose("Create directory", "vendor"),
-            Err(e) => delete_init_project(e, json_path, logger),
+            Err(e) => delete_init_project(e, json_path, &logger),
         }
     } else {
         logger.verbose("Synchronize", "vendor directory");
-        let packages = find_packages();
-        // TODO write packages to json file using create_json
+        let packages = vendor::find_packages(logger);
+        match json_helper::write(json_path, "", Some(object!{
+            "info" => object!{
+                "name" => parent_name.as_str()
+            },
+            "packages" => object!{
+                "git" => packages.clone(),
+                "local" => array![],
+                "global" => array![]
+            }
+        })) {
+            Ok(_) => {
+                logger.verbose("Create file", "rubigo.json");
+            },
+            Err(e) => delete_init_project(e, json_path, &logger),
+        }
+
+        match json_helper::write(Path::new("rubigo.lock"), "", Some(object!{
+            "packages" => object!{
+                "git" => packages,
+                "local" => array![],
+                "global" => array![]
+            }
+        })) {
+            Ok(_) => {
+                logger.verbose("Create file", "rubigo.lock");
+            },
+            Err(e) => {
+                match remove_file("rubigo.lock") {
+                    Ok(_) => logger.verbose("Delete file", "rubigo.lock"),
+                    _ => (),
+                }
+                delete_init_project(e, json_path, &logger)
+            },
+        }
     }
 
     logger.verbose("Done", "Rubigo project has been initialized")
