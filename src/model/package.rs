@@ -1,25 +1,36 @@
 use json::JsonValue;
 
 #[derive(PartialEq, Eq, Debug)]
-enum PackageUpdate {
+pub enum PackageUpdate {
     Fixed,
     Minor,
     Patch,
     Latest,
 }
 
-struct Package {
-    import: &'static str,
-    update: Option<PackageUpdate>,
-    version: Option<&'static str>,
+pub struct Package {
+    pub import: String,
+    pub update: Option<PackageUpdate>,
+    pub version: Option<String>,
+    pub repo: Option<String>,
 }
 
 impl Package {
+    pub fn new() -> Self {
+        Package {
+            import: String::new(),
+            update: None,
+            version: None,
+            repo: None,
+        }
+    }
+
     pub fn to_json(&self) -> JsonValue {
+        // TODO add self.repo
         match self.version {
-            Some(ver) => {
+            Some(ref ver) => {
                 object!{
-                    "import" => self.import,
+                    "import" => self.import.as_str(),
                     "update" => match self.update {
                         Some(ref up) => match up {
                             &PackageUpdate::Fixed => "fixed",
@@ -29,12 +40,12 @@ impl Package {
                         },
                         None => "fixed"
                     },
-                    "version" => ver
+                    "version" => ver.as_str()
                 }
             },
             None => {
                 object!{
-                    "import" => self.import
+                    "import" => self.import.as_str()
                 }
             },
         }

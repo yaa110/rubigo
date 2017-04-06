@@ -1,13 +1,13 @@
 use inner::logger::{Verbosity, log_fatal, log_verbose, log_error};
 use std::path::Path;
-use std::fs::{create_dir, create_dir_all, remove_dir_all, remove_file};
-use std::fs::File;
-use std::io::prelude::*;
+use std::fs::{File, create_dir, create_dir_all, remove_dir_all, remove_file};
 use std::env::current_dir;
 use std::fmt::Display;
-use std::io;
 use git2::Repository;
 use std::ffi::OsStr;
+use std::io::Write;
+use inner::json_helper;
+use inner::vendor::find_packages;
 
 pub fn new(name: &str, is_lib: bool, verb: &Verbosity) {
     let path = Path::new(name);
@@ -50,7 +50,7 @@ pub fn new(name: &str, is_lib: bool, verb: &Verbosity) {
         Err(e) => delete_new_project(e, path, current_dir.as_path(), verb),
     }
 
-    match create_json(path.join("rubigo.json"), name) {
+    match json_helper::write(path.join("rubigo.json"), name, None) {
         Ok(_) => log_verbose("Create file", "rubigo.json", verb),
         Err(e) => delete_new_project(e, path, current_dir.as_path(), verb),
     }
@@ -73,34 +73,37 @@ pub fn init(verb: &Verbosity) {
     let json_path = Path::new("rubigo.json");
     if json_path.exists() {
         log_fatal("Rubigo project has already been initialized", verb)
-    } else {
-        match create_json(json_path, match json_path.parent() {
-            Some(folder) => folder.file_name().unwrap_or(OsStr::new("unknown")),
-            None => OsStr::new("unknown"),
-        }.to_str().unwrap_or("unknown")) {
-            Ok(_) => {
-                log_verbose("Create file", "rubigo.json", verb);
-                let lock_path = Path::new("rubigo.lock");
-                if lock_path.exists() {
-                    match remove_file(lock_path) {
-                        Ok(_) => log_verbose("Delete file", "rubigo.lock", verb),
-                        Err(e) => delete_init_project(e, json_path, verb),
-                    }
-                }
-            },
+    }
+
+    let lock_path = Path::new("rubigo.lock");
+    if lock_path.exists() {
+        match remove_file(lock_path) {
+            Ok(_) => log_verbose("Delete file", "rubigo.lock", verb),
             Err(e) => delete_init_project(e, json_path, verb),
         }
     }
 
+    let parent_name = match json_path.parent() {
+        Some(folder) => folder.file_name().unwrap_or(OsStr::new("unknown")),
+        None => OsStr::new("unknown"),
+    }.to_str().unwrap_or("unknown");
     let vendor_path = Path::new("vendor");
     if !vendor_path.exists() {
+        match json_helper::write(json_path, parent_name, None) {
+            Ok(_) => {
+                log_verbose("Create file", "rubigo.json", verb);
+            },
+            Err(e) => delete_init_project(e, json_path, verb),
+        }
+
         match create_dir(vendor_path) {
             Ok(_) => log_verbose("Create directory", "vendor", verb),
             Err(e) => delete_init_project(e, json_path, verb),
         }
     } else {
-        log_verbose("Check directory", "vendor", verb)
-        // TODO check for packages
+        log_verbose("Synchronize", "vendor directory", verb);
+        let packages = find_packages();
+        // TODO write packages to json file using create_json
     }
 
     log_verbose("Done", "Rubigo project has been initialized", verb)
@@ -120,30 +123,4 @@ fn delete_new_project<T: Display>(err: T, path: &Path, current_dir: &Path, verb:
         Err(e) => log_error(e, verb),
     }
     log_fatal(err, verb)
-}
-
-fn create_json<P: AsRef<Path>>(json_path: P, project_name: &str) -> io::Result<()> {
-    let data = object!{
-        "info" => object!{
-            "name" => project_name
-        },
-        "packages" => object!{
-            "git" => array![],
-            "local" => array![],
-            "global" => array![]
-        },
-        "defaults" => object!{}
-    };
-
-    match File::create(json_path) {
-        Ok(mut file) => {
-            match file.write_all(format!("{:#}", data).as_bytes()) {
-                Ok(_) => (),
-                Err(e) => return Err(e),
-            }
-        },
-        Err(e) => return Err(e),
-    }
-
-    Ok(())
 }

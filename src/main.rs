@@ -6,6 +6,8 @@ extern crate ansi_term;
 extern crate git2;
 #[macro_use]
 extern crate json;
+extern crate threadpool;
+extern crate num_cpus;
 
 mod inner;
 mod controller;
