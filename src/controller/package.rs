@@ -1,31 +1,26 @@
-use inner::logger::Verbosity;
+use inner::logger::Logger;
 
-pub fn apply(verb: &Verbosity) {
-    println!("{:?}", verb);
+pub fn apply(logger: &Logger) {
     // TODO
 }
 
-pub fn get(package_url: &str, verb: &Verbosity) {
-    println!("{}:{:?}", package_url, verb);
+pub fn get(package_url: &str, logger: &Logger) {
     // TODO
 }
 
-pub fn global(package_url: &str, verb: &Verbosity) {
-    println!("{}:{:?}", package_url, verb);
+pub fn global(package_url: &str, logger: &Logger) {
     // TODO
 }
 
-pub fn local(dir_name: &str, verb: &Verbosity) {
-    println!("{}:{:?}", dir_name, verb);
+pub fn local(dir_name: &str, logger: &Logger) {
     // TODO
 }
 
-pub fn remove(package_dir: &str, verb: &Verbosity) {
-    println!("{}:{:?}", package_dir, verb);
+pub fn remove(package_dir: &str, logger: &Logger) {
     // TODO
 }
 
-pub fn update(package_url: Option<&str>, verb: &Verbosity) {
-    println!("{}:{:?}", package_url.unwrap_or("all"), verb);
+pub fn update(package_url: Option<&str>, logger: &Logger) {
+    println!("{}", package_url.unwrap_or("all"));
     // TODO
 }

@@ -16,8 +16,7 @@ mod model;
 use clap::{Arg, App, SubCommand};
 use std::process;
 use controller::*;
-use inner::logger::Verbosity;
-use inner::logger::log_fatal;
+use inner::logger::{Logger, Verbosity};
 
 const VERSION: &'static str = "0.1.0";
 
@@ -138,46 +137,47 @@ fn main() {
             .about("Display information about this Rubigo project"))
         .get_matches();
 
-    let mut verb = Verbosity::Low;
-    if matches.is_present("verbose") {
-        verb = Verbosity::High;
+    let logger = Logger::new(if matches.is_present("verbose") {
+        Verbosity::High
     } else if matches.is_present("quiet") {
-        verb = Verbosity::None;
-    }
+        Verbosity::None
+    } else {
+        Verbosity::Low
+    });
 
     match matches.subcommand_name() {
-        Some("apply") => package::apply(&verb),
+        Some("apply") => package::apply(&logger),
         Some("get") => package::get(match matches.subcommand_matches("get") {
             Some(args) => match args.value_of("package") {
                 Some(value) => value,
                 None => {
-                    log_fatal("unable to get argument of `get` sub command", &verb);
+                    logger.fatal("unable to get argument of `get` sub command");
                     return
                 },
             },
             None => {
-                log_fatal("unable to get argument of `get` sub command", &verb);
+                logger.fatal("unable to get argument of `get` sub command");
                 return
             },
-        }, &verb),
+        }, &logger),
         Some("global") => package::global(match matches.subcommand_matches("global") {
             Some(args) => match args.value_of("package") {
                 Some(value) => value,
                 None => {
-                    log_fatal("unable to get argument of `global` sub command", &verb);
+                    logger.fatal("unable to get argument of `global` sub command");
                     return
                 },
             },
             None => {
-                log_fatal("unable to get argument of `global` sub command", &verb);
+                logger.fatal("unable to get argument of `global` sub command");
                 return
             },
-        }, &verb),
+        }, &logger),
         Some("info") => {
             if match matches.subcommand_matches("info") {
                 Some(args) => args.is_present("edit"),
                 None => {
-                    log_fatal("unable to get argument of `info` sub command", &verb);
+                    logger.fatal("unable to get argument of `info` sub command");
                     return
                 },
             } {
@@ -186,12 +186,12 @@ fn main() {
                 info::display()
             }
         },
-        Some("init") => project::init(&verb),
+        Some("init") => project::init(&logger),
         Some("list") => {
             let list_matches = match matches.subcommand_matches("list") {
                 Some(args) => args,
                 None => {
-                    log_fatal("unable to get argument of `list` sub command", &verb);
+                    logger.fatal("unable to get argument of `list` sub command");
                     return
                 },
             };
@@ -209,49 +209,49 @@ fn main() {
             Some(args) => match args.value_of("directory") {
                 Some(value) => value,
                 None => {
-                    log_fatal("unable to get argument of `local` sub command", &verb);
+                    logger.fatal("unable to get argument of `local` sub command");
                     return
                 },
             },
             None => {
-                log_fatal("unable to get argument of `local` sub command", &verb);
+                logger.fatal("unable to get argument of `local` sub command");
                 return
             },
-        }, &verb),
+        }, &logger),
         Some("new") => {
             let new_matches = match matches.subcommand_matches("new") {
                 Some(args) => args,
                 None => {
-                    log_fatal("unable to get argument of `new` sub command", &verb);
+                    logger.fatal("unable to get argument of `new` sub command");
                     return
                 },
             };
             project::new(match new_matches.value_of("name") {
                 Some(value) => value,
                 None => {
-                    log_fatal("unable to get `name` argument of `new` sub command", &verb);
+                    logger.fatal("unable to get `name` argument of `new` sub command");
                     return
                 },
-            }, new_matches.is_present("library"), &verb)
+            }, new_matches.is_present("library"), &logger)
         },
         Some("remove") => package::remove(match matches.subcommand_matches("remove") {
             Some(args) => match args.value_of("package") {
                 Some(value) => value,
                 None => {
-                    log_fatal("unable to get argument of `remove` sub command", &verb);
+                    logger.fatal("unable to get argument of `remove` sub command");
                     return
                 },
             },
             None => {
-                log_fatal("unable to get argument of `remove` sub command", &verb);
+                logger.fatal("unable to get argument of `remove` sub command");
                 return
             },
-        }, &verb),
+        }, &logger),
         Some("update") => {
             let update_matches = match matches.subcommand_matches("update") {
                 Some(args) => args,
                 None => {
-                    log_fatal("unable to get argument of `update` sub command", &verb);
+                    logger.fatal("unable to get argument of `update` sub command");
                     return
                 },
             };
@@ -259,12 +259,12 @@ fn main() {
                 package::update(Some(match update_matches.value_of("package") {
                     Some(value) => value,
                     None => {
-                        log_fatal("unable to get `package` argument of `update` sub command", &verb);
+                        logger.fatal("unable to get `package` argument of `update` sub command");
                         return
                     },
-                }), &verb)
+                }), &logger)
             } else {
-                package::update(None, &verb)
+                package::update(None, &logger)
             }
         },
         _ => {

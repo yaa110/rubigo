@@ -1,4 +1,4 @@
-use inner::logger::{Verbosity, log_fatal, log_verbose, log_error};
+use inner::logger::Logger;
 use std::path::Path;
 use std::fs::{File, create_dir, create_dir_all, remove_dir_all, remove_file};
 use std::env::current_dir;
@@ -9,25 +9,25 @@ use std::io::Write;
 use inner::json_helper;
 use inner::vendor::find_packages;
 
-pub fn new(name: &str, is_lib: bool, verb: &Verbosity) {
+pub fn new(name: &str, is_lib: bool, logger: &Logger) {
     let path = Path::new(name);
     let current_dir = match current_dir() {
         Ok(path_buf) => path_buf,
         Err(e) => {
-            log_fatal(e, verb);
+            logger.fatal(e);
             return
         },
     };
 
     if path.exists() {
-        log_fatal(format!("the directory `{}` already exists in {:?}", name, current_dir), verb)
+        logger.fatal(format!("the directory `{}` already exists in {:?}", name, current_dir))
     }
 
     match create_dir_all(path.join("vendor")) {
         Ok(_) => {
-            log_verbose("Create project", name, verb)
+            logger.verbose("Create project", name)
         },
-        Err(e) => log_fatal(e, verb),
+        Err(e) => logger.fatal(e),
     }
 
     let content;
@@ -43,43 +43,43 @@ pub fn new(name: &str, is_lib: bool, verb: &Verbosity) {
     match File::create(path.join(go_file.as_str())) {
         Ok(mut file) => {
             match file.write_all(content.as_bytes()) {
-                Ok(_) => log_verbose("Create file", go_file, verb),
-                Err(e) => delete_new_project(e, path, current_dir.as_path(), verb),
+                Ok(_) => logger.verbose("Create file", go_file),
+                Err(e) => delete_new_project(e, path, current_dir.as_path(), logger),
             };
         },
-        Err(e) => delete_new_project(e, path, current_dir.as_path(), verb),
+        Err(e) => delete_new_project(e, path, current_dir.as_path(), logger),
     }
 
     match json_helper::write(path.join("rubigo.json"), name, None) {
-        Ok(_) => log_verbose("Create file", "rubigo.json", verb),
-        Err(e) => delete_new_project(e, path, current_dir.as_path(), verb),
+        Ok(_) => logger.verbose("Create file", "rubigo.json"),
+        Err(e) => delete_new_project(e, path, current_dir.as_path(), logger),
     }
 
     match Repository::init(path) {
-        Ok(repo) => log_verbose("Initialize git", match repo.workdir() {
+        Ok(repo) => logger.verbose("Initialize git", match repo.workdir() {
             Some(repo_path) => match repo_path.to_str() {
                 Some(repo_path_str) => repo_path_str,
                 None => "unknown",
             },
             None => "unknown",
-        }, verb),
-        Err(e) => delete_new_project(e, path, current_dir.as_path(), verb),
+        }),
+        Err(e) => delete_new_project(e, path, current_dir.as_path(), logger),
     }
 
-    log_verbose("Done", "Rubigo project has been created", verb)
+    logger.verbose("Done", "Rubigo project has been created")
 }
 
-pub fn init(verb: &Verbosity) {
+pub fn init(logger: &Logger) {
     let json_path = Path::new("rubigo.json");
     if json_path.exists() {
-        log_fatal("Rubigo project has already been initialized", verb)
+        logger.fatal("Rubigo project has already been initialized")
     }
 
     let lock_path = Path::new("rubigo.lock");
     if lock_path.exists() {
         match remove_file(lock_path) {
-            Ok(_) => log_verbose("Delete file", "rubigo.lock", verb),
-            Err(e) => delete_init_project(e, json_path, verb),
+            Ok(_) => logger.verbose("Delete file", "rubigo.lock"),
+            Err(e) => delete_init_project(e, json_path, logger),
         }
     }
 
@@ -91,36 +91,36 @@ pub fn init(verb: &Verbosity) {
     if !vendor_path.exists() {
         match json_helper::write(json_path, parent_name, None) {
             Ok(_) => {
-                log_verbose("Create file", "rubigo.json", verb);
+                logger.verbose("Create file", "rubigo.json");
             },
-            Err(e) => delete_init_project(e, json_path, verb),
+            Err(e) => delete_init_project(e, json_path, logger),
         }
 
         match create_dir(vendor_path) {
-            Ok(_) => log_verbose("Create directory", "vendor", verb),
-            Err(e) => delete_init_project(e, json_path, verb),
+            Ok(_) => logger.verbose("Create directory", "vendor"),
+            Err(e) => delete_init_project(e, json_path, logger),
         }
     } else {
-        log_verbose("Synchronize", "vendor directory", verb);
+        logger.verbose("Synchronize", "vendor directory");
         let packages = find_packages();
         // TODO write packages to json file using create_json
     }
 
-    log_verbose("Done", "Rubigo project has been initialized", verb)
+    logger.verbose("Done", "Rubigo project has been initialized")
 }
 
-fn delete_init_project<T: Display>(err: T, path: &Path, verb: &Verbosity) {
+fn delete_init_project<T: Display>(err: T, path: &Path, logger: &Logger) {
     match remove_file(path) {
-        Ok(_) => log_verbose("Delete file", "rubigo.json", verb),
+        Ok(_) => logger.verbose("Delete file", "rubigo.json"),
         _ => (),
     }
-    log_fatal(err, verb)
+    logger.fatal(err)
 }
 
-fn delete_new_project<T: Display>(err: T, path: &Path, current_dir: &Path, verb: &Verbosity) {
+fn delete_new_project<T: Display>(err: T, path: &Path, current_dir: &Path, logger: &Logger) {
     match remove_dir_all(path) {
-        Ok(_) => log_verbose("Delete project", current_dir.to_str().unwrap_or("unknown"), verb),
-        Err(e) => log_error(e, verb),
+        Ok(_) => logger.verbose("Delete project", current_dir.to_str().unwrap_or("unknown")),
+        Err(e) => logger.error(e),
     }
-    log_fatal(err, verb)
+    logger.fatal(err)
 }

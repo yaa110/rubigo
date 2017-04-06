@@ -11,19 +11,31 @@ pub enum Verbosity {
     None,
 }
 
-pub fn log_verbose<T: Display>(title: &str, msg: T, verb: &Verbosity) {
-    if *verb == Verbosity::High {
-        println!("[{}] {} {}", Fixed(8).paint(time::strftime("%T", &time::now()).unwrap_or(String::from("00:00:00"))), Yellow.paint(title), msg);
-    }
+pub struct Logger {
+    verbosity: Verbosity,
 }
 
-pub fn log_error<T: Display>(err: T, verb: &Verbosity) {
-    if *verb != Verbosity::None {
-        println!("{} {}", Red.paint("error:"), err);
+impl Logger {
+    pub fn new(verbosity: Verbosity) -> Self {
+        Logger {
+            verbosity: verbosity,
+        }
     }
-}
 
-pub fn log_fatal<T: Display>(err: T, verb: &Verbosity) {
-    log_error(err, verb);
-    process::exit(1)
+    pub fn verbose<T: Display>(&self, title: &str, msg: T) {
+        if self.verbosity == Verbosity::High {
+            println!("[{}] {} {}", Fixed(8).paint(time::strftime("%T", &time::now()).unwrap_or(String::from("00:00:00"))), Yellow.paint(title), msg);
+        }
+    }
+
+    pub fn error<T: Display>(&self, err: T) {
+        if self.verbosity != Verbosity::None {
+            println!("{} {}", Red.paint("error:"), err);
+        }
+    }
+
+    pub fn fatal<T: Display>(&self, err: T) {
+        self.error(err);
+        process::exit(1);
+    }
 }
