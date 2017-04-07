@@ -172,16 +172,6 @@ fn parse_repository(repo: Repository, logger: &Logger) -> Option<JsonValue> {
         },
         _ => return None,
     }
-    match repo.remotes() {
-        Ok(rmts) => match rmts.get(0) {
-            Some(rmt_name) => match repo.find_remote(rmt_name) {
-                Ok(rmt) => pkg["repo"] = rmt.url().into(),
-                _ => (),
-            },
-            None => (),
-        },
-        _ => (),
-    }
     let pkg_import = parse_import(repo.path());
     logger.verbose("Find package", &pkg_import);
     pkg["import"] = pkg_import.into();

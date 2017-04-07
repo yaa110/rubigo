@@ -1,8 +1,8 @@
 use std::fs::File;
 use std::io::Write;
-use json::JsonValue;
+use json::{self, JsonValue};
 use std::path::Path;
-use std::io;
+use std::io::{self, Read};
 
 pub fn write<P: AsRef<Path>>(json_path: P, project_name: &str, data: Option<JsonValue>) -> io::Result<()> {
     match File::create(json_path) {
@@ -29,4 +29,14 @@ pub fn write<P: AsRef<Path>>(json_path: P, project_name: &str, data: Option<Json
     }
 
     Ok(())
+}
+
+pub fn read(json_path: &Path) -> io::Result<JsonValue> {
+    let mut file = File::open(json_path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    match json::parse(contents.as_str()) {
+        Ok(content) => Ok(content),
+        Err(_) => Err(io::Error::new(io::ErrorKind::Other, format!("unable to parse json file: {:?}", json_path.to_str().unwrap_or("unknown")).as_str())),
+    }
 }

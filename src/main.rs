@@ -8,12 +8,13 @@ extern crate git2;
 extern crate json;
 extern crate threadpool;
 extern crate num_cpus;
+extern crate futures;
+extern crate futures_cpupool;
 
 mod inner;
 mod controller;
-mod model;
 
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, App, SubCommand, AppSettings};
 use std::process;
 use controller::*;
 use inner::logger::{Logger, Verbosity};
@@ -24,11 +25,17 @@ fn main() {
     let matches = App::new("Rubigo")
         .version(VERSION)
         .name("Rubigo")
-        .about(" Golang dependency tool and package manager\n For more information, please visit https://github.com/yaa110/rubigo")
+        .setting(AppSettings::VersionlessSubcommands)
+        .about("Golang dependency tool and package manager\nFor more information, please visit https://github.com/yaa110/rubigo")
         .arg(Arg::with_name("verbose")
             .short("v")
             .long("verbose")
             .help("Use verbose output")
+            .takes_value(false))
+        .arg(Arg::with_name("no-prompt")
+            .short("y")
+            .long("yes")
+            .help("Continue without prompt for a confirmation")
             .takes_value(false))
         .arg(Arg::with_name("quiet")
             .short("q")
@@ -37,8 +44,7 @@ fn main() {
             .help("Print no output")
             .takes_value(false))
         .subcommand(SubCommand::with_name("new")
-            .version(VERSION)
-            .alias("create")
+            .visible_alias("create")
             .arg(Arg::with_name("name")
                 .help("The name of project")
                 .required(true))
@@ -55,26 +61,33 @@ fn main() {
                 .takes_value(false))
             .about("Create a new Rubigo project"))
         .subcommand(SubCommand::with_name("init")
-            .version(VERSION)
-            .alias("start")
+            .visible_alias("start")
             .about("Initialize Rubigo project in an existing directory"))
+        .subcommand(SubCommand::with_name("reset")
+            .visible_alias("sync")
+            .about("Update `rubigo.json` and `rubigo.lock` to the packages in `vendor` directory"))
         .subcommand(SubCommand::with_name("get")
-            .version(VERSION)
-            .alias("add")
+            .visible_alias("add")
             .arg(Arg::with_name("package")
                 .help("The path of package repository")
                 .required(true))
+            .arg(Arg::with_name("repository")
+                .short("r")
+                .long("repo")
+                .value_name("repository")
+                .help("Clone the package from the provided `repository` rather than its main url")
+                .require_equals(true)
+                .required(false)
+                .takes_value(true))
             .about("Add a package to dependencies and clone it into `vendor` directory"))
         .subcommand(SubCommand::with_name("remove")
-            .version(VERSION)
-            .alias("rm")
+            .visible_alias("rm")
             .arg(Arg::with_name("package")
                 .help("The path of package repository")
                 .required(true))
             .about("Remove a package from dependencies and `vendor` directory"))
         .subcommand(SubCommand::with_name("update")
-            .version(VERSION)
-            .alias("up")
+            .visible_alias("up")
             .arg(Arg::with_name("package")
                 .help("The path of package repository"))
             .arg(Arg::with_name("all")
@@ -83,52 +96,48 @@ fn main() {
                 .help("Update all packages (Default)")
                 .conflicts_with("package")
                 .takes_value(false))
-            .about("Update one or all packages"))
+            .about("Update one or all packages and apply the changes of `rubigo.json` to packages in `vendor` directory"))
         .subcommand(SubCommand::with_name("local")
-            .version(VERSION)
             .arg(Arg::with_name("directory")
                 .required(true)
                 .help("The directory name of local package"))
             .about("Create a new local package in `vendor` directory"))
         .subcommand(SubCommand::with_name("global")
-            .version(VERSION)
             .arg(Arg::with_name("package")
                 .required(true)
                 .help("The path of package repository"))
             .about("Install a package in `GOPATH/src` directory"))
         .subcommand(SubCommand::with_name("list")
-            .alias("ls")
-            .version(VERSION)
+            .visible_alias("ls")
             .arg(Arg::with_name("all")
                 .short("a")
                 .long("all")
                 .conflicts_with_all(&["global", "remote", "local"])
-                .help("List all dependencies (Default)")
+                .help("List all packages (Default)")
                 .takes_value(false))
             .arg(Arg::with_name("local")
                 .short("l")
                 .long("local")
                 .conflicts_with_all(&["global", "remote", "all"])
-                .help("List local dependencies")
+                .help("List local packages")
                 .takes_value(false))
             .arg(Arg::with_name("global")
                 .short("g")
                 .long("global")
                 .conflicts_with_all(&["remote", "local", "all"])
-                .help("List local dependencies")
+                .help("List global packages")
                 .takes_value(false))
             .arg(Arg::with_name("remote")
                 .short("r")
                 .long("remote")
                 .conflicts_with_all(&["global", "local", "all"])
-                .help("List remote dependencies with git repositories")
+                .help("List remote packages with git repositories")
                 .takes_value(false))
             .about("Display a list of dependencies"))
         .subcommand(SubCommand::with_name("apply")
-            .version(VERSION)
-            .about("Apply the changes of `rubigo.json` to dependencies in `vendor` directory"))
+            .visible_alias("install")
+            .about("Apply the changes of `rubigo.lock` to packages in `vendor` directory"))
         .subcommand(SubCommand::with_name("info")
-            .version(VERSION)
             .arg(Arg::with_name("edit")
                 .short("e")
                 .long("edit")
@@ -187,6 +196,7 @@ fn main() {
             }
         },
         Some("init") => project::init(logger),
+        Some("reset") => project::reset(logger, matches.is_present("no-prompt")),
         Some("list") => {
             let list_matches = match matches.subcommand_matches("list") {
                 Some(args) => args,
@@ -268,7 +278,7 @@ fn main() {
             }
         },
         _ => {
-            println!("{}", matches.usage());
+            logger.error("No sub command has been provided. Please run `rubigo --help` for more information");
             process::exit(1)
         },
     }
