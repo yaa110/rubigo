@@ -4,11 +4,11 @@ use std::fs::{File, create_dir, create_dir_all, remove_dir_all, remove_file};
 use std::env::current_dir;
 use std::fmt::Display;
 use git2::Repository;
-use json::JsonValue;
 use std::io::Write;
 use inner::{vendor, json_helper, helpers};
 use futures::Future;
 use futures_cpupool::CpuPool;
+use std::thread;
 
 pub fn new(name: &str, is_lib: bool, logger: &Logger) {
     fn delete_new_project<T: Display>(err: T, path: &Path, current_dir: &Path, logger: &Logger) {
@@ -74,8 +74,6 @@ pub fn new(name: &str, is_lib: bool, logger: &Logger) {
         }),
         Err(e) => delete_new_project(e, path, current_dir.as_path(), logger),
     }
-
-    logger.verbose("Done", "Rubigo project has been created")
 }
 
 pub fn init(logger: Logger) {
@@ -113,7 +111,7 @@ pub fn init(logger: Logger) {
         }
     } else {
         logger.verbose("Synchronize", "vendor directory");
-        let mut git_packages = vendor::find_packages(logger);
+        let git_packages = vendor::find_packages(logger);
         match json_helper::write(json_path, "", Some(object!{
             "info" => object!{
                 "name" => parent_name.as_str()
@@ -128,7 +126,6 @@ pub fn init(logger: Logger) {
             Err(e) => delete_init_project(e, json_path, &logger),
         }
 
-        remove_update_key(&mut git_packages);
         match json_helper::write(Path::new("rubigo.lock"), "", Some(object!{
             "git" => git_packages,
             "local" => array![],
@@ -144,11 +141,9 @@ pub fn init(logger: Logger) {
             },
         }
     }
-
-    logger.verbose("Done", "Rubigo project has been initialized")
 }
 
-pub fn reset(logger: Logger, no_prompt: bool) {
+pub fn reset(no_prompt: bool, logger: Logger) {
     if no_prompt {
         inner_reset(logger);
     } else {
@@ -182,7 +177,7 @@ pub fn reset(logger: Logger, no_prompt: bool) {
         });
 
         logger.verbose("Synchronize", "vendor directory");
-        let mut git_packages = vendor::find_packages(logger);
+        let git_packages = vendor::find_packages(logger);
 
         let rubigo_json = rubigo_json_future.wait().unwrap_or(object!{});
         let rubigo_lock = rubigo_lock_future.wait().unwrap_or(object!{});
@@ -190,7 +185,7 @@ pub fn reset(logger: Logger, no_prompt: bool) {
         if global_packages.is_null() {
             global_packages = array![];
         }
-        let local_packages = rubigo_lock["local"].clone();
+        let local_packages = &rubigo_lock["local"];
         let mut local_packages_result = array![];
         if !local_packages.is_null() {
             for i in 0..local_packages.len() {
@@ -222,7 +217,6 @@ pub fn reset(logger: Logger, no_prompt: bool) {
             Err(e) => logger.fatal(e),
         }
 
-        remove_update_key(&mut git_packages);
         match json_helper::write(Path::new("rubigo.lock"), "", Some(object!{
             "git" => git_packages,
             "local" => local_packages_result,
@@ -231,13 +225,33 @@ pub fn reset(logger: Logger, no_prompt: bool) {
             Ok(_) => logger.verbose("Replace file", "rubigo.lock"),
             Err(e) => logger.fatal(e),
         }
-
-        logger.verbose("Done", "Rubigo project has been reset")
     }
 }
 
-fn remove_update_key(packages: &mut JsonValue) {
-    for i in 0..packages.len() {
-        packages[i].remove("update");
-    }
+pub fn apply(should_clean: bool, logger: Logger) {
+    let lock_content = match json_helper::read(Path::new("rubigo.lock")) {
+        Ok(content) => content,
+        Err(e) => {
+            logger.fatal(e);
+            return
+        }
+    };
+
+    let c_lock = lock_content.clone();
+    let local_thread = thread::spawn(move || {
+        let _ = vendor::install_local_packages(c_lock, logger);
+    });
+    let c_lock2 = lock_content.clone();
+    let global_thread = thread::spawn(move || {
+        let _ = vendor::install_global_packages(c_lock2, false, logger);
+    });
+    let _  = vendor::install_git_packages(&lock_content["git"], "Check package", should_clean, true, logger);
+    match local_thread.join() {
+        Ok(_) => (),
+        _ => logger.error("unable to join local thread"),
+    };
+    match global_thread.join() {
+        Ok(_) => (),
+        _ => logger.error("unable to join global thread"),
+    };
 }

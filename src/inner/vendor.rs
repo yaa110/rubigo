@@ -1,22 +1,17 @@
 use std::path::{Path, PathBuf, Component};
-use std::fs::read_dir;
-use git2::Repository;
+use std::fs::{read_dir, remove_dir_all, create_dir_all};
+use git2::{Repository, BranchType, ResetType};
 use std::ffi::OsStr;
 use json::JsonValue;
-use threadpool::ThreadPool;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
-use num_cpus;
 use inner::logger::Logger;
+use ansi_term::Color::Yellow;
+use inner::{git_helper, go, helpers};
 
 pub fn find_packages(logger: Logger) -> JsonValue {
     let packages = Arc::new(Mutex::new(array![]));
-    let threads_num = num_cpus::get();
-    let pool = ThreadPool::new(if threads_num > 1 {
-        threads_num
-    } else {
-        2
-    });
+    let pool = helpers::new_thread_pool();
     let (tx, rx) = channel();
     let counter = Arc::new(Mutex::new(0));
 
@@ -65,6 +60,260 @@ pub fn find_packages(logger: Logger) -> JsonValue {
         },
         _ => array![],
     }
+}
+
+pub fn install_local_packages(c_lock: JsonValue, logger: Logger) -> JsonValue {
+    let mut installed_packages = array![];
+    let local_packages = &c_lock["local"];
+    if !local_packages.is_null() {
+        for i in 0..local_packages.len() {
+            let local_pkg = match local_packages[i].as_str() {
+                Some(val_str) => val_str,
+                None => continue,
+            };
+            let dir_path = Path::new("vendor").join(local_pkg);
+            if !dir_path.is_dir() {
+                match create_dir_all(dir_path) {
+                    Ok(_) => {
+                        let _ = installed_packages.push(local_pkg);
+                        logger.verbose("Create directory", local_pkg)
+                    },
+                    Err(e) => logger.error(e),
+                }
+            } else {
+                let _ = installed_packages.push(local_pkg);
+            }
+        }
+    }
+    installed_packages
+}
+
+pub fn install_global_packages(c_lock: JsonValue, should_update: bool, logger: Logger) -> JsonValue {
+    let mut installed_packages = array![];
+    let global_packages = &c_lock["global"];
+    if !global_packages.is_null() {
+        for i in 0..global_packages.len() {
+            let global_pkg = match global_packages[i].as_str() {
+                Some(val_str) => val_str,
+                None => continue,
+            };
+            match go::get(global_pkg, should_update) {
+                true => {
+                    let _ = installed_packages.push(global_pkg);
+                    logger.verbose("Global package", global_pkg)
+                },
+                false => logger.error(format!("Unable to install global package `{}`", global_pkg)),
+            }
+        }
+    }
+    installed_packages
+}
+
+pub fn install_git_packages(packages: &JsonValue, msg_title: &str, should_clean: bool, is_apply: bool, logger: Logger) -> JsonValue {
+    if packages.is_null() {
+        return array![]
+    }
+
+    let length = packages.len();
+    if length == 0 {
+        return array![]
+    }
+
+    let pool = helpers::new_thread_pool();
+    let (tx, rx) = channel();
+
+    for i in 0..length {
+        let package = packages[i].clone();
+        let c_tx = tx.clone();
+        pool.execute(move || {
+            update_package(package, should_clean, is_apply, c_tx, logger);
+        });
+    }
+
+    let mut git_packages = array![];
+    for pkg in rx.iter().take(length) {
+        logger.verbose(msg_title, match pkg["import"].as_str() {
+            Some(import_str) => import_str,
+            None => continue,
+        });
+        if !is_apply {
+            let _ = git_packages.push(pkg);
+        }
+    }
+    git_packages
+}
+
+pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx: Sender<JsonValue>, logger: Logger) {
+    let mut mut_pkg = package.clone();
+    let pkg_import = match package["import"].as_str() {
+        Some(import_str) => import_str,
+        None => {
+            logger.error("unable to get `import` value");
+            let _ = tx.send(mut_pkg);
+            return
+        },
+    };
+
+    let http_import = format!("http://{}", pkg_import);
+    let repo_url = match package["repo"].as_str() {
+        Some(repo_str) => repo_str,
+        None => http_import.as_str(),
+    };
+
+    let mut pkg_path_buf = PathBuf::from("vendor");
+    let path_segments = pkg_import.split("/");
+    for segment in path_segments {
+        pkg_path_buf.push(segment)
+    }
+
+    let pkg_path = pkg_path_buf.as_path();
+    if should_clean && pkg_path.exists() {
+        match remove_dir_all(pkg_path) {
+            Ok(_) => (),
+            Err(e) => {
+                logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                let _ = tx.send(mut_pkg);
+                return
+            }
+        }
+    }
+
+    let repo = if should_clean || !pkg_path.is_dir() {
+        match Repository::clone(repo_url, pkg_path) {
+            Ok(repo) => {
+                logger.verbose("Clone repository", pkg_import);
+                repo
+            },
+            Err(e) => {
+                logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                let _ = tx.send(mut_pkg);
+                return
+            },
+        }
+    } else {
+        match Repository::open(pkg_path) {
+            Ok(repo) => {
+                logger.verbose("Open repository", pkg_import);
+                if !is_apply {
+                    match repo.remotes() {
+                        Ok(remotes) => match remotes.get(0) {
+                            Some(remote_name) => match repo.find_remote(remote_name) {
+                                Ok(mut remote) => match remote.fetch(&[], None, None) {
+                                    Ok(_) => {
+                                        logger.verbose("Fetch repository", pkg_import);
+                                        match repo.branches(Some(BranchType::Local)) {
+                                            Ok(branches) => for branch in branches {
+                                                match branch {
+                                                    Ok(br) => {
+                                                        let branch = br.0;
+                                                        let branch_ref_name = match branch.get().name() {
+                                                            Some(name) => name.to_owned(),
+                                                            None => continue,
+                                                        };
+                                                        let remote_name = match branch.upstream() {
+                                                            Ok(remote_branch) => match remote_branch.name() {
+                                                                Ok(remote_branch_name) => match remote_branch_name {
+                                                                    Some(name) => name.to_owned(),
+                                                                    None => continue,
+                                                                },
+                                                                _ => continue,
+                                                            },
+                                                            _ => continue,
+                                                        };
+                                                        let remote_object = match repo.revparse_single(remote_name.as_str()) {
+                                                            Ok(obj) => obj,
+                                                            _ => continue,
+                                                        };
+                                                        match repo.set_head(branch_ref_name.as_str()) {
+                                                            Ok(_) => (),
+                                                            _ => continue,
+                                                        }
+                                                        match repo.reset(&remote_object, ResetType::Hard, None) {
+                                                            Ok(_) => logger.verbose("Update branch", format!("{} {}", Yellow.paint(pkg_import), branch.name().unwrap_or(None).unwrap_or("unknown"))),
+                                                            _ => continue,
+                                                        };
+                                                    },
+                                                    _ => (),
+                                                }
+                                            },
+                                            _ => (),
+                                        };
+                                    },
+                                    Err(e) => {
+                                        logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                                        let _ = tx.send(mut_pkg);
+                                        return
+                                    },
+                                },
+                                Err(e) => {
+                                    logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                                    let _ = tx.send(mut_pkg);
+                                    return
+                                },
+                            },
+                            None => {
+                                logger.error(format!("{} unable to get remote name of", Yellow.paint(pkg_import)));
+                                let _ = tx.send(mut_pkg);
+                                return
+                            },
+                        },
+                        Err(e) => {
+                            logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                            let _ = tx.send(mut_pkg);
+                            return
+                        },
+                    };
+                }
+                repo
+            },
+            Err(e) => {
+                logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                let _ = tx.send(mut_pkg);
+                return
+            }
+        }
+    };
+
+    let mut version = match package["version"].as_str() {
+        Some(version_str) => version_str.to_owned(),
+        None => {
+            logger.error(format!("{} unable to get `version` value", Yellow.paint(pkg_import)));
+            let _ = tx.send(mut_pkg);
+            return
+        },
+    };
+
+    if !is_apply {
+        version = git_helper::get_latest_version(version, &repo);
+        mut_pkg["version"] = version.clone().into();
+    }
+
+    let version_object = match repo.revparse_single(version.as_str()) {
+        Ok(obj) => obj,
+        Err(e) => {
+            logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+            let _ = tx.send(mut_pkg);
+            return
+        },
+    };
+    match repo.set_head_detached(version_object.id()) {
+        Ok(_) => (),
+        Err(e) => {
+            logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+            let _ = tx.send(mut_pkg);
+            return
+        },
+    };
+    match repo.reset(&version_object, ResetType::Hard, None){
+        Ok(_) => (),
+        Err(e) => {
+            logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+            let _ = tx.send(mut_pkg);
+            return
+        },
+    };
+
+    let _ = tx.send(mut_pkg);
 }
 
 fn parse_dir(dir_path: String, packages: Arc<Mutex<JsonValue>>, tx: Sender<Option<String>>, counter: Arc<Mutex<i32>>, logger: Logger) {
@@ -150,8 +399,8 @@ fn parse_import(path: &Path) -> String {
 fn parse_repository(repo: Repository, logger: &Logger) -> Option<JsonValue> {
     let mut pkg = object!{};
     match repo.head() {
-        Ok(ref reference) => {
-            match reference.target() {
+        Ok(r) => match r.resolve() {
+            Ok (ref reference) => match reference.target() {
                 Some(o_id) => {
                     pkg["version"] = if reference.is_tag() {
                         match repo.find_tag(o_id) {
@@ -165,10 +414,8 @@ fn parse_repository(repo: Repository, logger: &Logger) -> Option<JsonValue> {
                     };
                 },
                 None => return None,
-            };
-
-            // TODO set it via default
-            pkg["update"] = "fixed".into();
+            },
+            _ => return None,
         },
         _ => return None,
     }

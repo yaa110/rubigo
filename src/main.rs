@@ -10,6 +10,8 @@ extern crate threadpool;
 extern crate num_cpus;
 extern crate futures;
 extern crate futures_cpupool;
+extern crate semver;
+extern crate regex;
 
 mod inner;
 mod controller;
@@ -88,6 +90,11 @@ fn main() {
             .about("Remove a package from dependencies and `vendor` directory"))
         .subcommand(SubCommand::with_name("update")
             .visible_alias("up")
+            .arg(Arg::with_name("clean")
+                .short("c")
+                .long("clean")
+                .help("Remove the package directory and clone from the repository")
+                .takes_value(false))
             .arg(Arg::with_name("package")
                 .help("The path of package repository"))
             .arg(Arg::with_name("all")
@@ -96,7 +103,7 @@ fn main() {
                 .help("Update all packages (Default)")
                 .conflicts_with("package")
                 .takes_value(false))
-            .about("Update one or all packages and apply the changes of `rubigo.json` to packages in `vendor` directory"))
+            .about("Update one or all packages and apply the changes of `rubigo.json` to `rubigo.lock` and packages in `vendor` directory"))
         .subcommand(SubCommand::with_name("local")
             .arg(Arg::with_name("directory")
                 .required(true)
@@ -136,6 +143,11 @@ fn main() {
             .about("Display a list of dependencies"))
         .subcommand(SubCommand::with_name("apply")
             .visible_alias("install")
+            .arg(Arg::with_name("clean")
+                .short("c")
+                .long("clean")
+                .help("Remove the package directory and clone from the repository")
+                .takes_value(false))
             .about("Apply the changes of `rubigo.lock` to packages in `vendor` directory"))
         .subcommand(SubCommand::with_name("info")
             .arg(Arg::with_name("edit")
@@ -155,7 +167,7 @@ fn main() {
     });
 
     match matches.subcommand_name() {
-        Some("apply") => package::apply(&logger),
+        Some("apply") => project::apply(matches.is_present("clean"), logger),
         Some("get") => package::get(match matches.subcommand_matches("get") {
             Some(args) => match args.value_of("package") {
                 Some(value) => value,
@@ -196,7 +208,7 @@ fn main() {
             }
         },
         Some("init") => project::init(logger),
-        Some("reset") => project::reset(logger, matches.is_present("no-prompt")),
+        Some("reset") => project::reset(matches.is_present("no-prompt"), logger),
         Some("list") => {
             let list_matches = match matches.subcommand_matches("list") {
                 Some(args) => args,
@@ -272,9 +284,9 @@ fn main() {
                         logger.fatal("unable to get `package` argument of `update` sub command");
                         return
                     },
-                }), &logger)
+                }), matches.is_present("clean"), logger)
             } else {
-                package::update(None, &logger)
+                package::update(None, matches.is_present("clean"), logger)
             }
         },
         _ => {

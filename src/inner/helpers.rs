@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::{Component, Path};
 use std::io::{self, Write};
+use threadpool::ThreadPool;
+use num_cpus;
 
 pub fn get_current_dir() -> String {
     match fs::canonicalize(Path::new(Component::CurDir.as_os_str())) {
@@ -35,4 +37,13 @@ pub fn confirmation_prompt(msg: &str) -> io::Result<bool> {
         },
         Err(e) => Err(e),
     }
+}
+
+pub fn new_thread_pool() -> ThreadPool {
+    let threads_num = num_cpus::get();
+    ThreadPool::new(if threads_num > 1 {
+        threads_num
+    } else {
+        2
+    })
 }

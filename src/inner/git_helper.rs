@@ -1,4 +1,4 @@
-use git2::{Repository, Oid};
+use git2::Repository;
 use semver::{Version, VersionReq};
 use regex::Regex;
 
@@ -22,7 +22,10 @@ pub fn get_latest_version(current_version: String, repo: &Repository) -> String 
             match repo.tag_names(None) {
                 Ok(tag_names) => {
                     let mut selected_tag = None;
-                    let re = Regex::new(r"^v?([0-9]+)[.]?([0-9]*)[.]?([0-9]*)([-]?.*)").unwrap();
+                    let re = match Regex::new(r"^v?([0-9]+)[.]?([0-9]*)[.]?([0-9]*)([-]?.*)") {
+                        Ok(re) => re,
+                        _ => return version,
+                    };
                     for t in tag_names.iter() {
                         let tag_name = match t {
                             Some(name) => name,
