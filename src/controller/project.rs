@@ -239,17 +239,21 @@ pub fn apply(should_clean: bool, logger: Logger) {
 
     let c_lock = lock_content.clone();
     let local_thread = thread::spawn(move || {
-        let _ = vendor::install_local_packages(c_lock, logger);
+        let _ = vendor::install_local_packages(&c_lock["local"], logger);
     });
+
     let c_lock2 = lock_content.clone();
     let global_thread = thread::spawn(move || {
-        let _ = vendor::install_global_packages(c_lock2, false, logger);
+        let _ = vendor::install_global_packages(&c_lock2["global"], false, logger);
     });
-    let _  = vendor::install_git_packages(&lock_content["git"], "Check package", should_clean, true, logger);
+
+    let _ = vendor::install_git_packages(&lock_content["git"], "Check package", should_clean, true, logger);
+
     match local_thread.join() {
         Ok(_) => (),
         _ => logger.error("unable to join local thread"),
     };
+
     match global_thread.join() {
         Ok(_) => (),
         _ => logger.error("unable to join global thread"),

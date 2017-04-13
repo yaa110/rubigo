@@ -62,9 +62,8 @@ pub fn find_packages(logger: Logger) -> JsonValue {
     }
 }
 
-pub fn install_local_packages(c_lock: JsonValue, logger: Logger) -> JsonValue {
+pub fn install_local_packages(local_packages: &JsonValue, logger: Logger) -> JsonValue {
     let mut installed_packages = array![];
-    let local_packages = &c_lock["local"];
     if !local_packages.is_null() {
         for i in 0..local_packages.len() {
             let local_pkg = match local_packages[i].as_str() {
@@ -88,9 +87,8 @@ pub fn install_local_packages(c_lock: JsonValue, logger: Logger) -> JsonValue {
     installed_packages
 }
 
-pub fn install_global_packages(c_lock: JsonValue, should_update: bool, logger: Logger) -> JsonValue {
+pub fn install_global_packages(global_packages: &JsonValue, should_update: bool, logger: Logger) -> JsonValue {
     let mut installed_packages = array![];
-    let global_packages = &c_lock["global"];
     if !global_packages.is_null() {
         for i in 0..global_packages.len() {
             let global_pkg = match global_packages[i].as_str() {
@@ -169,7 +167,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
     let pkg_path = pkg_path_buf.as_path();
     if should_clean && pkg_path.exists() {
         match remove_dir_all(pkg_path) {
-            Ok(_) => (),
+            Ok(_) => logger.verbose("Clean package", pkg_path.to_str().unwrap_or("unknown")),
             Err(e) => {
                 logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
                 let _ = tx.send(mut_pkg);
@@ -284,18 +282,21 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
     };
 
     if !is_apply {
-        version = git_helper::get_latest_version(version, &repo);
-        mut_pkg["version"] = version.clone().into();
+        version = git_helper::get_latest_version(&repo, version);
     }
 
-    let version_object = match repo.revparse_single(version.as_str()) {
-        Ok(obj) => obj,
-        Err(e) => {
-            logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+    let version_object = match git_helper::get_revision_object(&repo, pkg_import.to_owned(), version, true, logger) {
+        Some(tup) => {
+            mut_pkg["version"] = tup.1.clone().into();
+            tup.0
+        },
+        None => {
+            logger.error(format!("unable to parse the version of `{}`", pkg_import));
             let _ = tx.send(mut_pkg);
             return
-        },
+        }
     };
+
     match repo.set_head_detached(version_object.id()) {
         Ok(_) => (),
         Err(e) => {

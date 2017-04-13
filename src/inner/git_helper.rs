@@ -1,6 +1,7 @@
-use git2::Repository;
+use git2::{Repository, Object};
 use semver::{Version, VersionReq};
 use regex::Regex;
+use inner::logger::Logger;
 
 pub fn get_latest_commit(repo: &Repository) -> Option<String> {
     match repo.head() {
@@ -15,7 +16,7 @@ pub fn get_latest_commit(repo: &Repository) -> Option<String> {
     }
 }
 
-pub fn get_latest_version(current_version: String, repo: &Repository) -> String {
+pub fn get_latest_version(repo: &Repository, current_version: String) -> String {
     let mut version = current_version;
     match VersionReq::parse(version.as_str()) {
         Ok(version_rule) => {
@@ -88,4 +89,22 @@ pub fn get_latest_version(current_version: String, repo: &Repository) -> String 
         _ => (),
     }
     version
+}
+
+pub fn get_revision_object(repo: &Repository, pkg_import: String, version: String, should_retry: bool, logger: Logger) -> Option<(Object, String)> {
+    match repo.revparse_single(version.as_str()) {
+        Ok(obj) => return Some((obj, version)),
+        Err(e) => {
+            if !should_retry {
+                return None
+            }
+            match get_latest_commit(repo) {
+                Some(ver) => {
+                    logger.error(format!("the version of `{}` changed to `{}` due to {}", pkg_import, ver, e));
+                    return get_revision_object(repo, pkg_import, ver, false, logger)
+                },
+                None => return None,
+            }
+        },
+    }
 }

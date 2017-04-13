@@ -80,7 +80,19 @@ fn main() {
                 .help("Clone the package from the provided `repository` rather than its main url")
                 .require_equals(true)
                 .required(false)
+                .conflicts_with_all(&["local", "global"])
                 .takes_value(true))
+            .arg(Arg::with_name("global")
+                .short("g")
+                .long("global")
+                .help("Install the package in `GOPATH/src` directory")
+                .required(false))
+            .arg(Arg::with_name("local")
+                .short("l")
+                .long("local")
+                .conflicts_with("global")
+                .help("Create a new local package in `vendor` directory")
+                .required(false))
             .about("Add a package to dependencies and clone it into `vendor` directory"))
         .subcommand(SubCommand::with_name("remove")
             .visible_alias("rm")
@@ -104,16 +116,6 @@ fn main() {
                 .conflicts_with("package")
                 .takes_value(false))
             .about("Update one or all packages and apply the changes of `rubigo.json` to `rubigo.lock` and packages in `vendor` directory"))
-        .subcommand(SubCommand::with_name("local")
-            .arg(Arg::with_name("directory")
-                .required(true)
-                .help("The directory name of local package"))
-            .about("Create a new local package in `vendor` directory"))
-        .subcommand(SubCommand::with_name("global")
-            .arg(Arg::with_name("package")
-                .required(true)
-                .help("The path of package repository"))
-            .about("Install a package in `GOPATH/src` directory"))
         .subcommand(SubCommand::with_name("list")
             .visible_alias("ls")
             .arg(Arg::with_name("all")
@@ -167,7 +169,16 @@ fn main() {
     });
 
     match matches.subcommand_name() {
-        Some("apply") => project::apply(matches.is_present("clean"), logger),
+        Some("apply") => {
+            let apply_matches = match matches.subcommand_matches("apply") {
+                Some(args) => args,
+                None => {
+                    logger.fatal("unable to get argument of `apply` sub command");
+                    return
+                },
+            };
+            project::apply(apply_matches.is_present("clean"), logger)
+        },
         Some("get") => package::get(match matches.subcommand_matches("get") {
             Some(args) => match args.value_of("package") {
                 Some(value) => value,
@@ -284,9 +295,9 @@ fn main() {
                         logger.fatal("unable to get `package` argument of `update` sub command");
                         return
                     },
-                }), matches.is_present("clean"), logger)
+                }), update_matches.is_present("clean"), logger)
             } else {
-                package::update(None, matches.is_present("clean"), logger)
+                package::update(None, update_matches.is_present("clean"), logger)
             }
         },
         _ => {
