@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf, Component};
+use std::path::{Path, Component};
 use std::fs::{read_dir, remove_dir_all, create_dir_all};
 use git2::{Repository, BranchType, ResetType};
 use std::ffi::OsStr;
@@ -7,7 +7,9 @@ use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
 use inner::logger::Logger;
 use ansi_term::Color::Yellow;
-use inner::{git_helper, go, helpers};
+use inner::{git_helper, go, helpers, json_helper};
+
+pub const VENDOR_DIR: &'static str = "vendor";
 
 pub fn find_packages(logger: Logger) -> JsonValue {
     let packages = Arc::new(Mutex::new(array![]));
@@ -23,7 +25,7 @@ pub fn find_packages(logger: Logger) -> JsonValue {
     let cp_counter = counter.clone();
     let cp_pkgs = packages.clone();
     pool.execute(move || {
-        parse_dir(String::from("vendor"), cp_pkgs, cp_tx, cp_counter, logger);
+        parse_dir(String::from(VENDOR_DIR), cp_pkgs, cp_tx, cp_counter, logger);
     });
 
     while match counter.lock() {
@@ -70,7 +72,7 @@ pub fn install_local_packages(local_packages: &JsonValue, logger: Logger) -> Jso
                 Some(val_str) => val_str,
                 None => continue,
             };
-            let dir_path = Path::new("vendor").join(local_pkg);
+            let dir_path = Path::new(VENDOR_DIR).join(local_pkg);
             if !dir_path.is_dir() {
                 match create_dir_all(dir_path) {
                     Ok(_) => {
@@ -130,7 +132,7 @@ pub fn install_git_packages(packages: &JsonValue, msg_title: &str, should_clean:
 
     let mut git_packages = array![];
     for pkg in rx.iter().take(length) {
-        logger.verbose(msg_title, match pkg["import"].as_str() {
+        logger.verbose(msg_title, match pkg[json_helper::IMPORT_KEY].as_str() {
             Some(import_str) => import_str,
             None => continue,
         });
@@ -143,27 +145,23 @@ pub fn install_git_packages(packages: &JsonValue, msg_title: &str, should_clean:
 
 pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx: Sender<JsonValue>, logger: Logger) {
     let mut mut_pkg = package.clone();
-    let pkg_import = match package["import"].as_str() {
+    let pkg_import_raw = helpers::strip_url_scheme(match package[json_helper::IMPORT_KEY].as_str() {
         Some(import_str) => import_str,
         None => {
             logger.error("unable to get `import` value");
             let _ = tx.send(mut_pkg);
             return
         },
-    };
+    });
+    let pkg_import = pkg_import_raw.as_str();
 
     let http_import = format!("http://{}", pkg_import);
-    let repo_url = match package["repo"].as_str() {
+    let repo_url = match package[json_helper::REPO_KEY].as_str() {
         Some(repo_str) => repo_str,
         None => http_import.as_str(),
     };
 
-    let mut pkg_path_buf = PathBuf::from("vendor");
-    let path_segments = pkg_import.split("/");
-    for segment in path_segments {
-        pkg_path_buf.push(segment)
-    }
-
+    let pkg_path_buf = helpers::get_path_from_url(pkg_import);
     let pkg_path = pkg_path_buf.as_path();
     if should_clean && pkg_path.exists() {
         match remove_dir_all(pkg_path) {
@@ -272,7 +270,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
         }
     };
 
-    let mut version = match package["version"].as_str() {
+    let mut version = match package[json_helper::VERSION_KEY].as_str() {
         Some(version_str) => version_str.to_owned(),
         None => {
             logger.error(format!("{} unable to get `version` value", Yellow.paint(pkg_import)));
@@ -282,12 +280,12 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
     };
 
     if !is_apply {
-        version = git_helper::get_latest_version(&repo, version);
+        version = git_helper::get_latest_compat_version(&repo, version);
     }
 
     let version_object = match git_helper::get_revision_object(&repo, pkg_import.to_owned(), version, true, logger) {
         Some(tup) => {
-            mut_pkg["version"] = tup.1.clone().into();
+            mut_pkg[json_helper::VERSION_KEY] = tup.1.clone().into();
             tup.0
         },
         None => {
@@ -305,6 +303,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
             return
         },
     };
+
     match repo.reset(&version_object, ResetType::Hard, None){
         Ok(_) => (),
         Err(e) => {
@@ -323,7 +322,7 @@ fn parse_dir(dir_path: String, packages: Arc<Mutex<JsonValue>>, tx: Sender<Optio
             for entry in paths {
                 match entry {
                     Ok(p) => {
-                        let path_buf: PathBuf = p.path();
+                        let path_buf = p.path();
                         let path: &Path = path_buf.as_path();
                         if path.is_dir() {
                             match counter.lock() {
@@ -376,7 +375,7 @@ fn parse_dir(dir_path: String, packages: Arc<Mutex<JsonValue>>, tx: Sender<Optio
 fn parse_import(path: &Path) -> String {
     let mut parts = Vec::new();
     let mut is_vendor_found = false;
-    let vendor_os_str = OsStr::new("vendor");
+    let vendor_os_str = OsStr::new(VENDOR_DIR);
     let git_os_str = OsStr::new(".git");
     for comp in path.components() {
         match comp {
@@ -403,7 +402,7 @@ fn parse_repository(repo: Repository, logger: &Logger) -> Option<JsonValue> {
         Ok(r) => match r.resolve() {
             Ok (ref reference) => match reference.target() {
                 Some(o_id) => {
-                    pkg["version"] = if reference.is_tag() {
+                    pkg[json_helper::VERSION_KEY] = if reference.is_tag() {
                         match repo.find_tag(o_id) {
                             Ok(tag) => tag.name().unwrap_or(format!("{}", o_id).as_str()).into(),
                             _ => format!("{}", o_id).into(),
@@ -422,6 +421,6 @@ fn parse_repository(repo: Repository, logger: &Logger) -> Option<JsonValue> {
     }
     let pkg_import = parse_import(repo.path());
     logger.verbose("Find package", &pkg_import);
-    pkg["import"] = pkg_import.into();
+    pkg[json_helper::IMPORT_KEY] = pkg_import.into();
     Some(pkg)
 }

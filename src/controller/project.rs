@@ -29,14 +29,18 @@ pub fn new(name: &str, is_lib: bool, logger: &Logger) {
     };
 
     if path.exists() {
-        logger.fatal(format!("the directory `{}` already exists in {:?}", name, current_dir))
+        logger.fatal(format!("the directory `{}` already exists in {:?}", name, current_dir));
+        return
     }
 
-    match create_dir_all(path.join("vendor")) {
+    match create_dir_all(path.join(vendor::VENDOR_DIR)) {
         Ok(_) => {
             logger.verbose("Create project", name)
         },
-        Err(e) => logger.fatal(e),
+        Err(e) => {
+            logger.fatal(e);
+            return
+        },
     }
 
     let content;
@@ -87,7 +91,8 @@ pub fn init(logger: Logger) {
 
     let json_path = Path::new("rubigo.json");
     if json_path.exists() {
-        logger.fatal("Rubigo project has already been initialized")
+        logger.fatal("Rubigo project has already been initialized");
+        return
     }
 
     let lock_path = Path::new("rubigo.lock");
@@ -98,7 +103,7 @@ pub fn init(logger: Logger) {
         }
     }
     let parent_name = helpers::get_current_dir();
-    let vendor_path = Path::new("vendor");
+    let vendor_path = Path::new(vendor::VENDOR_DIR);
     if !vendor_path.exists() {
         match json_helper::write(json_path, parent_name.as_str(), None) {
             Ok(_) => logger.verbose("Create file", "rubigo.json"),
@@ -106,20 +111,20 @@ pub fn init(logger: Logger) {
         }
 
         match create_dir(vendor_path) {
-            Ok(_) => logger.verbose("Create directory", "vendor"),
+            Ok(_) => logger.verbose("Create directory", vendor::VENDOR_DIR),
             Err(e) => delete_init_project(e, json_path, &logger),
         }
     } else {
         logger.verbose("Synchronize", "vendor directory");
         let git_packages = vendor::find_packages(logger);
         match json_helper::write(json_path, "", Some(object!{
-            "info" => object!{
-                "name" => parent_name.as_str()
+            json_helper::INFO_KEY => object!{
+                json_helper::NAME_KEY => parent_name.as_str()
             },
-            "packages" => object!{
-                "git" => git_packages.clone(),
-                "local" => array![],
-                "global" => array![]
+            json_helper::PACKAGES_KEY => object!{
+                json_helper::GIT_KEY => git_packages.clone(),
+                json_helper::LOCAL_KEY => array![],
+                json_helper::GLOBAL_KEY => array![]
             }
         })) {
             Ok(_) => logger.verbose("Create file", "rubigo.json"),
@@ -127,9 +132,9 @@ pub fn init(logger: Logger) {
         }
 
         match json_helper::write(Path::new("rubigo.lock"), "", Some(object!{
-            "git" => git_packages,
-            "local" => array![],
-            "global" => array![]
+            json_helper::GIT_KEY => git_packages,
+            json_helper::LOCAL_KEY => array![],
+            json_helper::GLOBAL_KEY => array![]
         })) {
             Ok(_) => logger.verbose("Create file", "rubigo.lock"),
             Err(e) => {
@@ -147,19 +152,23 @@ pub fn reset(no_prompt: bool, logger: Logger) {
     if no_prompt {
         inner_reset(logger);
     } else {
-        match helpers::confirmation_prompt("This sub command might cause unexpected changes in `rubigo.json` and `rubigo.lock` files.\nDo you want to continue? [Y/n] ") {
+        match helpers::confirmation_prompt("This sub command might cause unexpected changes in `rubigo.json` and `rubigo.lock` files.\nDo you want to continue? [Y/n]") {
             Ok(accepted) => if accepted {
                 inner_reset(logger);
             } else {
                 logger.error("aborted");
             },
-            Err(e) => logger.fatal(e),
+            Err(e) => {
+                logger.fatal(e);
+                return
+            },
         }
     }
 
     fn inner_reset(logger: Logger) {
-        if !Path::new("vendor").is_dir() {
+        if !Path::new(vendor::VENDOR_DIR).is_dir() {
             logger.fatal("vendor directory not found.");
+            return
         }
 
         let pool = CpuPool::new(2);
@@ -181,16 +190,16 @@ pub fn reset(no_prompt: bool, logger: Logger) {
 
         let rubigo_json = rubigo_json_future.wait().unwrap_or(object!{});
         let rubigo_lock = rubigo_lock_future.wait().unwrap_or(object!{});
-        let mut global_packages = rubigo_lock["global"].clone();
+        let mut global_packages = rubigo_lock[json_helper::GLOBAL_KEY].clone();
         if global_packages.is_null() {
             global_packages = array![];
         }
-        let local_packages = &rubigo_lock["local"];
+        let local_packages = &rubigo_lock[json_helper::LOCAL_KEY];
         let mut local_packages_result = array![];
         if !local_packages.is_null() {
             for i in 0..local_packages.len() {
                 let local_pkg = local_packages[i].clone();
-                if Path::new("vendor").join(match local_pkg.as_str() {
+                if Path::new(vendor::VENDOR_DIR).join(match local_pkg.as_str() {
                     Some(val_str) => val_str,
                     None => continue,
                 }).is_dir() {
@@ -201,26 +210,29 @@ pub fn reset(no_prompt: bool, logger: Logger) {
             }
         }
 
-        let mut info_obj = rubigo_json["info"].clone();
+        let mut info_obj = rubigo_json[json_helper::INFO_KEY].clone();
         if info_obj.is_null() {
             info_obj = object!{};
         }
         match json_helper::write(Path::new("rubigo.json"), "", Some(object!{
-            "info" => info_obj,
-            "packages" => object!{
-                "git" => git_packages.clone(),
-                "local" => local_packages_result.clone(),
-                "global" => global_packages.clone()
+            json_helper::INFO_KEY => info_obj,
+            json_helper::PACKAGES_KEY => object!{
+                json_helper::GIT_KEY => git_packages.clone(),
+                json_helper::LOCAL_KEY => local_packages_result.clone(),
+                json_helper::GLOBAL_KEY => global_packages.clone()
             }
         })) {
             Ok(_) => logger.verbose("Replace file", "rubigo.json"),
-            Err(e) => logger.fatal(e),
+            Err(e) => {
+                logger.fatal(e);
+                return
+            },
         }
 
         match json_helper::write(Path::new("rubigo.lock"), "", Some(object!{
-            "git" => git_packages,
-            "local" => local_packages_result,
-            "global" => global_packages
+            json_helper::GIT_KEY => git_packages,
+            json_helper::LOCAL_KEY => local_packages_result,
+            json_helper::GLOBAL_KEY => global_packages
         })) {
             Ok(_) => logger.verbose("Replace file", "rubigo.lock"),
             Err(e) => logger.fatal(e),
@@ -239,15 +251,15 @@ pub fn apply(should_clean: bool, logger: Logger) {
 
     let c_lock = lock_content.clone();
     let local_thread = thread::spawn(move || {
-        let _ = vendor::install_local_packages(&c_lock["local"], logger);
+        let _ = vendor::install_local_packages(&c_lock[json_helper::LOCAL_KEY], logger);
     });
 
     let c_lock2 = lock_content.clone();
     let global_thread = thread::spawn(move || {
-        let _ = vendor::install_global_packages(&c_lock2["global"], false, logger);
+        let _ = vendor::install_global_packages(&c_lock2[json_helper::GLOBAL_KEY], false, logger);
     });
 
-    let _ = vendor::install_git_packages(&lock_content["git"], "Check package", should_clean, true, logger);
+    let _ = vendor::install_git_packages(&lock_content[json_helper::GIT_KEY], "Check package", should_clean, true, logger);
 
     match local_thread.join() {
         Ok(_) => (),

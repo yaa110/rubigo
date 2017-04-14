@@ -71,7 +71,7 @@ fn main() {
         .subcommand(SubCommand::with_name("get")
             .visible_alias("add")
             .arg(Arg::with_name("package")
-                .help("The path of package repository")
+                .help("The import path of package")
                 .required(true))
             .arg(Arg::with_name("repository")
                 .short("r")
@@ -97,7 +97,7 @@ fn main() {
         .subcommand(SubCommand::with_name("remove")
             .visible_alias("rm")
             .arg(Arg::with_name("package")
-                .help("The path of package repository")
+                .help("The import path of package")
                 .required(true))
             .about("Remove a package from dependencies and `vendor` directory"))
         .subcommand(SubCommand::with_name("update")
@@ -108,7 +108,7 @@ fn main() {
                 .help("Remove the package directory and clone from the repository")
                 .takes_value(false))
             .arg(Arg::with_name("package")
-                .help("The path of package repository"))
+                .help("The import path of package"))
             .arg(Arg::with_name("all")
                 .short("a")
                 .long("all")
@@ -179,32 +179,22 @@ fn main() {
             };
             project::apply(apply_matches.is_present("clean"), logger)
         },
-        Some("get") => package::get(match matches.subcommand_matches("get") {
-            Some(args) => match args.value_of("package") {
-                Some(value) => value,
+        Some("get") => {
+            let get_matches = match matches.subcommand_matches("get") {
+                Some(args) => args,
                 None => {
                     logger.fatal("unable to get argument of `get` sub command");
                     return
                 },
-            },
-            None => {
-                logger.fatal("unable to get argument of `get` sub command");
-                return
-            },
-        }, &logger),
-        Some("global") => package::global(match matches.subcommand_matches("global") {
-            Some(args) => match args.value_of("package") {
-                Some(value) => value,
+            };
+            package::get(match get_matches.value_of("package") {
+                Some(pkg) => pkg,
                 None => {
-                    logger.fatal("unable to get argument of `global` sub command");
+                    logger.fatal("unable to get `package` argument of `get` sub command");
                     return
-                },
-            },
-            None => {
-                logger.fatal("unable to get argument of `global` sub command");
-                return
-            },
-        }, &logger),
+                }
+            }, get_matches.value_of("repository"), matches.is_present("no-prompt"), get_matches.is_present("global"), get_matches.is_present("local"), logger);
+        },
         Some("info") => {
             if match matches.subcommand_matches("info") {
                 Some(args) => args.is_present("edit"),
@@ -238,19 +228,6 @@ fn main() {
                 list::all()
             }
         },
-        Some("local") => package::local(match matches.subcommand_matches("local") {
-            Some(args) => match args.value_of("directory") {
-                Some(value) => value,
-                None => {
-                    logger.fatal("unable to get argument of `local` sub command");
-                    return
-                },
-            },
-            None => {
-                logger.fatal("unable to get argument of `local` sub command");
-                return
-            },
-        }, &logger),
         Some("new") => {
             let new_matches = match matches.subcommand_matches("new") {
                 Some(args) => args,
