@@ -4,9 +4,11 @@ use std::io::{self, Write};
 use threadpool::ThreadPool;
 use num_cpus;
 use regex::Regex;
-use inner::git_helper;
+use inner::{git_helper, json_helper};
 use inner::vendor::VENDOR_DIR;
 use git2::Repository;
+use json::JsonValue;
+use inner::logger::Logger;
 
 pub fn get_current_dir() -> String {
     match fs::canonicalize(Path::new(Component::CurDir.as_os_str())) {
@@ -119,4 +121,74 @@ pub fn get_path_from_url(pkg_import: &str) -> PathBuf {
         pkg_path_buf.push(segment)
     }
     pkg_path_buf
+}
+
+pub fn remove_diff_packages(old_lock: &JsonValue, new_lock: &JsonValue, logger: Logger) {
+    if old_lock.is_null() {
+        return
+    }
+
+    let old_git = &old_lock[json_helper::GIT_KEY];
+    if !old_git.is_null() {
+        let new_git = &new_lock[json_helper::GIT_KEY];
+        'outer: for i in 0..old_git.len() {
+            let old_pkg_name = match old_git[i][json_helper::IMPORT_KEY].as_str() {
+                Some(name) => name,
+                None => continue 'outer,
+            };
+            'inner: for j in 0..new_git.len() {
+                let new_pkg_name = match new_git[j][json_helper::IMPORT_KEY].as_str() {
+                    Some(name) => name,
+                    None => continue 'inner,
+                };
+                if old_pkg_name == new_pkg_name {
+                    continue 'outer;
+                }
+            }
+            let _ = remove_package(old_pkg_name, logger);
+        }
+    }
+
+    let old_local = &old_lock[json_helper::LOCAL_KEY];
+    if !old_local.is_null() {
+        let new_local = &new_lock[json_helper::LOCAL_KEY];
+        'outer2: for i in 0..old_local.len() {
+            let old_pkg_name = match old_local[i].as_str() {
+                Some(name) => name,
+                None => continue 'outer2,
+            };
+            'inner2: for j in 0..new_local.len() {
+                let new_pkg_name = match new_local[j].as_str() {
+                    Some(name) => name,
+                    None => continue 'inner2,
+                };
+                if old_pkg_name == new_pkg_name {
+                    continue 'outer2;
+                }
+            }
+            let _ = remove_package(old_pkg_name, logger);
+        }
+    }
+}
+
+fn remove_package(dir_path: &str, logger: Logger) -> bool {
+    let pkg_path_buf: PathBuf = get_path_from_url(dir_path);
+    let pkg_path = pkg_path_buf.as_path();
+    match fs::remove_dir_all(pkg_path) {
+        Ok(_) => {
+            logger.verbose("Delete package", dir_path);
+            let mut parent = pkg_path.parent();
+            while parent.is_some() {
+                match fs::remove_dir(parent.unwrap()) {
+                    Ok(_) => parent = parent.unwrap().parent(),
+                    _ => parent = None,
+                }
+            }
+        },
+        Err(e) => {
+            logger.error(format!("unable to delete `{}` directory: {}", dir_path, e));
+            return false
+        },
+    }
+    true
 }

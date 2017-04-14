@@ -418,25 +418,34 @@ pub fn update(package_url: Option<&str>, should_clean: bool, logger: Logger) {
 
     let pool = CpuPool::new(2);
 
-    let c_json = json_content.clone();
-    let local_packages = pool.spawn_fn(move || {
-        Ok::<JsonValue, ()>(vendor::install_local_packages(&c_json[json_helper::PACKAGES_KEY][json_helper::LOCAL_KEY], logger))
+    let old_lock_future = pool.spawn_fn(|| {
+        match json_helper::read(Path::new("rubigo.lock")) {
+            Ok(content_json) => Ok(content_json),
+            Err(e) => Err(e),
+        }
     });
 
-    let c_json2 = json_content.clone();
+    let c_json = json_content[json_helper::PACKAGES_KEY][json_helper::LOCAL_KEY].clone();
+    let local_packages = pool.spawn_fn(move || {
+        Ok::<JsonValue, ()>(vendor::install_local_packages(&c_json, logger))
+    });
+
+    let c_json2 = json_content[json_helper::PACKAGES_KEY][json_helper::GLOBAL_KEY].clone();
     let global_packages = pool.spawn_fn(move || {
-        Ok::<JsonValue, ()>(vendor::install_global_packages(&c_json2[json_helper::PACKAGES_KEY][json_helper::GLOBAL_KEY], true, logger))
+        Ok::<JsonValue, ()>(vendor::install_global_packages(&c_json2, true, logger))
     });
 
     let git_packages = vendor::install_git_packages(&json_content[json_helper::PACKAGES_KEY][json_helper::GIT_KEY], "Update package", should_clean, false, logger);
 
-    // TODO delete removed packages from rubigo.json which exist in rubigo.lock
-
-    match json_helper::write("rubigo.lock", "", Some(object!{
+    let new_lock = object!{
         json_helper::GIT_KEY => git_packages,
         json_helper::LOCAL_KEY => local_packages.wait().unwrap_or(array![]),
         json_helper::GLOBAL_KEY => global_packages.wait().unwrap_or(array![])
-    })) {
+    };
+
+    helpers::remove_diff_packages(&old_lock_future.wait().unwrap_or(object![]), &new_lock, logger);
+
+    match json_helper::write("rubigo.lock", "", Some(new_lock)) {
         Ok(_) => logger.verbose("Update file", "rubigo.lock"),
         Err(e) => logger.error(e),
     }
