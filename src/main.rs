@@ -122,27 +122,24 @@ fn main() {
                 .short("a")
                 .long("all")
                 .conflicts_with_all(&["global", "remote", "local"])
-                .help("List all packages (Default)")
+                .help("List all packages from `rubigo.lock` file (Default)")
                 .takes_value(false))
             .arg(Arg::with_name("local")
                 .short("l")
                 .long("local")
-                .conflicts_with_all(&["global", "remote", "all"])
-                .help("List local packages")
+                .help("List local packages from `rubigo.lock` file")
                 .takes_value(false))
             .arg(Arg::with_name("global")
                 .short("g")
                 .long("global")
-                .conflicts_with_all(&["remote", "local", "all"])
-                .help("List global packages")
+                .help("List global packages from `rubigo.lock` file")
                 .takes_value(false))
             .arg(Arg::with_name("remote")
                 .short("r")
                 .long("remote")
-                .conflicts_with_all(&["global", "local", "all"])
-                .help("List remote packages with git repositories")
+                .help("List remote (git) packages from `rubigo.lock` file")
                 .takes_value(false))
-            .about("Display a list of dependencies"))
+            .about("Display a list of dependencies from `rubigo.lock` file"))
         .subcommand(SubCommand::with_name("apply")
             .visible_alias("install")
             .arg(Arg::with_name("clean")
@@ -218,15 +215,7 @@ fn main() {
                     return
                 },
             };
-            if list_matches.is_present("local") {
-                list::local()
-            } else if list_matches.is_present("remote") {
-                list::remote()
-            } else if list_matches.is_present("global") {
-                list::global()
-            } else {
-                list::all()
-            }
+            list::list(list_matches.is_present("local"), list_matches.is_present("remote"), list_matches.is_present("global"), &logger);
         },
         Some("new") => {
             let new_matches = match matches.subcommand_matches("new") {
