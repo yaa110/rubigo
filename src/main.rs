@@ -256,7 +256,7 @@ fn main() {
                 logger.fatal("unable to get argument of `remove` sub command");
                 return
             },
-        }, &logger),
+        }, logger),
         Some("update") => {
             let update_matches = match matches.subcommand_matches("update") {
                 Some(args) => args,

@@ -9,10 +9,10 @@ use std::thread;
 use std::fs::{create_dir_all, remove_dir_all};
 use controller::project;
 use git2::{Repository, ResetType};
+use std::process;
 
 pub fn get(package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_global: bool, is_local: bool, logger: Logger) {
-    let json_path = Path::new("rubigo.json");
-    if !json_path.exists() {
+    if !Path::new("rubigo.json").exists() {
         if no_prompt {
             project::init(logger);
         } else {
@@ -34,7 +34,7 @@ pub fn get(package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_global
     let rubigo_json = match json_helper::read(Path::new("rubigo.json")) {
         Ok(content_json) => content_json,
         Err(e) => {
-            logger.fatal(e);
+            logger.fatal(format!("unable to read `rubigo.json`: {}", e));
             return
         },
     };
@@ -224,6 +224,7 @@ pub fn get(package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_global
                     return
                 },
             };
+
             pkg_json[json_helper::VERSION_KEY] = version.clone().into();
         }
 
@@ -246,7 +247,7 @@ pub fn get(package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_global
                 logger.fatal(e);
                 return
             },
-        };
+        }
 
         match repo.reset(&version_object, ResetType::Hard, None){
             Ok(_) => (),
@@ -255,7 +256,7 @@ pub fn get(package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_global
                 logger.fatal(e);
                 return
             },
-        };
+        }
 
         let mut git_pkgs = rubigo_json[json_helper::PACKAGES_KEY][json_helper::GIT_KEY].clone();
         if git_pkgs.is_null() {
@@ -294,7 +295,7 @@ pub fn get(package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_global
             if !is_global {
                 let _ = remove_dir_all(pkg_path_buf.as_path());
             }
-            logger.fatal(e);
+            logger.fatal(format!("unable to write to `rubigo.json`: {}", e));
             return
         },
     }
@@ -304,20 +305,86 @@ pub fn get(package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_global
         Err(e) => {
             let _ = json_helper::write("rubigo.json", "", Some(rubigo_json));
             let _ = remove_dir_all(pkg_path_buf.as_path());
-            logger.fatal(e)
+            logger.fatal(format!("unable to write to `rubigo.lock`: {}", e))
         },
     }
 }
 
-pub fn remove(package_dir: &str, logger: &Logger) {
-    // TODO
+pub fn remove(package_dir: &str, logger: Logger) {
+    let json_content = match json_helper::read(Path::new("rubigo.json")) {
+        Ok(content) => content,
+        Err(e) => {
+            logger.fatal(format!("unable to read `rubigo.json`: {}", e));
+            return
+        }
+    };
+
+    let lock_content = match json_helper::read(Path::new("rubigo.lock")) {
+        Ok(content) => content,
+        Err(e) => {
+            logger.fatal(format!("unable to read `rubigo.lock`: {}", e));
+            return
+        }
+    };
+
+    let new_json_git = json_helper::remove_package_from_array(package_dir, &json_content[json_helper::PACKAGES_KEY][json_helper::GIT_KEY], false);
+    let new_json_local = json_helper::remove_package_from_array(package_dir, &json_content[json_helper::PACKAGES_KEY][json_helper::LOCAL_KEY], true);
+    let new_lock_git = json_helper::remove_package_from_array(package_dir, &lock_content[json_helper::GIT_KEY], false);
+    let new_lock_local = json_helper::remove_package_from_array(package_dir, &lock_content[json_helper::LOCAL_KEY], true);
+
+    match json_helper::write("rubigo.json", "", Some(object!{
+        json_helper::INFO_KEY => json_content[json_helper::INFO_KEY].clone(),
+        json_helper::PACKAGES_KEY => object!{
+            json_helper::GIT_KEY => new_json_git,
+            json_helper::LOCAL_KEY => new_json_local,
+            json_helper::GLOBAL_KEY => json_content[json_helper::PACKAGES_KEY][json_helper::GLOBAL_KEY].clone()
+        }
+    })) {
+        Ok(_) => logger.verbose("Update file", "rubigo.json"),
+        Err(e) => {
+            logger.fatal(e);
+            return
+        },
+    }
+
+    match json_helper::write("rubigo.lock", "", Some(object!{
+            json_helper::GIT_KEY => new_lock_git,
+            json_helper::LOCAL_KEY => new_lock_local,
+            json_helper::GLOBAL_KEY => lock_content[json_helper::GLOBAL_KEY].clone()
+    })) {
+        Ok(_) => logger.verbose("Update file", "rubigo.lock"),
+        Err(e) => {
+            match json_helper::write("rubigo.json", "", Some(json_content)) {
+                Ok(_) => logger.verbose("Revert file", "rubigo.json"),
+                Err(e) => logger.error(format!("unable to revert `rubigo.json`: {}", e)),
+            }
+            logger.fatal(e);
+            return
+        },
+    }
+
+    let pkg_path_buf = helpers::get_path_from_url(package_dir);
+    let pkg_path = pkg_path_buf.as_path();
+    if pkg_path.exists() {
+        if !helpers::remove_package(package_dir, logger) {
+            match json_helper::write("rubigo.json", "", Some(json_content)) {
+                Ok(_) => logger.verbose("Revert file", "rubigo.json"),
+                Err(e) => logger.error(format!("unable to revert `rubigo.json`: {}", e)),
+            }
+            match json_helper::write("rubigo.lock", "", Some(lock_content)) {
+                Ok(_) => logger.verbose("Revert file", "rubigo.lock"),
+                Err(e) => logger.error(format!("unable to revert `rubigo.lock`: {}", e)),
+            }
+            process::exit(1);
+        }
+    }
 }
 
 pub fn update(package_url: Option<&str>, should_clean: bool, logger: Logger) {
     let json_content = match json_helper::read(Path::new("rubigo.json")) {
         Ok(content) => content,
         Err(e) => {
-            logger.fatal(e);
+            logger.fatal(format!("unable to read `rubigo.json`: {}", e));
             return
         }
     };

@@ -106,7 +106,7 @@ pub fn get_latest_version(repo: &Repository, version_rule: Option<&VersionReq>) 
             }
         },
         _ => (),
-    };
+    }
     version
 }
 

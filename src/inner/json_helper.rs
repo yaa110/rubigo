@@ -52,3 +52,25 @@ pub fn read(json_path: &Path) -> io::Result<JsonValue> {
         Err(_) => Err(io::Error::new(io::ErrorKind::Other, format!("unable to parse json file: {:?}", json_path.to_str().unwrap_or("unknown")).as_str())),
     }
 }
+
+pub fn remove_package_from_array(pkg_import: &str, json_array: &JsonValue, is_local: bool) -> JsonValue {
+    let mut result_array = json_array.clone();
+    for i in 0..json_array.len() {
+        let pkg_name = if is_local {
+            match json_array[i].as_str() {
+                Some(name) => name,
+                None => continue,
+            }
+        } else {
+            match json_array[i][IMPORT_KEY].as_str() {
+                Some(name) => name,
+                None => continue,
+            }
+        };
+        if pkg_import == pkg_name {
+            let _ = result_array.array_remove(i);
+            break
+        }
+    }
+    result_array
+}

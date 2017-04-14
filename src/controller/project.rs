@@ -51,7 +51,7 @@ pub fn new(name: &str, is_lib: bool, logger: &Logger) {
     } else {
         content = String::from("package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"Hello, World!\")\n}\n\n");
         go_file = String::from("main.go");
-    };
+    }
 
     match File::create(path.join(go_file.as_str())) {
         Ok(mut file) => {
@@ -205,7 +205,7 @@ pub fn reset(no_prompt: bool, logger: Logger) {
                 }).is_dir() {
                     match local_packages_result.push(local_pkg) {
                         _ => (),
-                    };
+                    }
                 }
             }
         }
@@ -224,7 +224,7 @@ pub fn reset(no_prompt: bool, logger: Logger) {
         })) {
             Ok(_) => logger.verbose("Replace file", "rubigo.json"),
             Err(e) => {
-                logger.fatal(e);
+                logger.fatal(format!("unable to write to `rubigo.json`: {}", e));
                 return
             },
         }
@@ -235,7 +235,13 @@ pub fn reset(no_prompt: bool, logger: Logger) {
             json_helper::GLOBAL_KEY => global_packages
         })) {
             Ok(_) => logger.verbose("Replace file", "rubigo.lock"),
-            Err(e) => logger.fatal(e),
+            Err(e) => {
+                match json_helper::write("rubigo.json", "", Some(rubigo_json)) {
+                    Ok(_) => logger.verbose("Revert file", "rubigo.json"),
+                    Err(e) => logger.error(format!("unable to revert `rubigo.json`: {}", e)),
+                }
+                logger.fatal(format!("unable to write to `rubigo.lock`: {}", e))
+            },
         }
     }
 }
@@ -244,7 +250,7 @@ pub fn apply(should_clean: bool, logger: Logger) {
     let lock_content = match json_helper::read(Path::new("rubigo.lock")) {
         Ok(content) => content,
         Err(e) => {
-            logger.fatal(e);
+            logger.fatal(format!("unable to read `rubigo.lock`: {}", e));
             return
         }
     };
@@ -264,10 +270,10 @@ pub fn apply(should_clean: bool, logger: Logger) {
     match local_thread.join() {
         Ok(_) => (),
         _ => logger.error("unable to join local thread"),
-    };
+    }
 
     match global_thread.join() {
         Ok(_) => (),
         _ => logger.error("unable to join global thread"),
-    };
+    }
 }

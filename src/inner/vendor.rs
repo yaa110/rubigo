@@ -20,7 +20,7 @@ pub fn find_packages(logger: Logger) -> JsonValue {
     match counter.lock() {
         Ok(mut ptr) => *ptr += 1,
         _ => (),
-    };
+    }
     let cp_tx = tx.clone();
     let cp_counter = counter.clone();
     let cp_pkgs = packages.clone();
@@ -35,14 +35,14 @@ pub fn find_packages(logger: Logger) -> JsonValue {
         match counter.lock() {
             Ok(mut ptr) => *ptr -= 1,
             _ => (),
-        };
+        }
         match rx.recv() {
             Ok(path_opt) => match path_opt {
                 Some(p) => {
                     match counter.lock() {
                         Ok(mut ptr) => *ptr += 1,
                         _ => (),
-                    };
+                    }
                     let cp_tx = tx.clone();
                     let cp_counter = counter.clone();
                     let cp_pkgs = packages.clone();
@@ -227,13 +227,13 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
                                                         match repo.reset(&remote_object, ResetType::Hard, None) {
                                                             Ok(_) => logger.verbose("Update branch", format!("{} {}", Yellow.paint(pkg_import), branch.name().unwrap_or(None).unwrap_or("unknown"))),
                                                             _ => continue,
-                                                        };
+                                                        }
                                                     },
                                                     _ => (),
                                                 }
                                             },
                                             _ => (),
-                                        };
+                                        }
                                     },
                                     Err(e) => {
                                         logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
@@ -258,7 +258,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
                             let _ = tx.send(mut_pkg);
                             return
                         },
-                    };
+                    }
                 }
                 repo
             },
@@ -302,7 +302,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
             let _ = tx.send(mut_pkg);
             return
         },
-    };
+    }
 
     match repo.reset(&version_object, ResetType::Hard, None){
         Ok(_) => (),
@@ -311,7 +311,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
             let _ = tx.send(mut_pkg);
             return
         },
-    };
+    }
 
     let _ = tx.send(mut_pkg);
 }
@@ -328,14 +328,14 @@ fn parse_dir(dir_path: String, packages: Arc<Mutex<JsonValue>>, tx: Sender<Optio
                             match counter.lock() {
                                 Ok(mut ptr) => *ptr += 1,
                                 _ => (),
-                            };
+                            }
                             if path.join(".git").as_path().is_dir() {
                                 match Repository::open(path) {
                                     Ok(repo) => {
                                         match parse_repository(repo, &logger) {
                                             Some(pkg) => match packages.lock() {
-                                                Ok(mut ptr) => match ptr.push(pkg) {
-                                                    _ => (),
+                                                Ok(mut ptr) => {
+                                                    let _ = ptr.push(pkg);
                                                 },
                                                 _ => (),
                                             },
@@ -343,19 +343,15 @@ fn parse_dir(dir_path: String, packages: Arc<Mutex<JsonValue>>, tx: Sender<Optio
                                         }
                                     },
                                     _ => (),
-                                };
+                                }
                                 tx.send(None).unwrap();
                             } else {
                                 match path.to_str() {
                                     Some(path_str) => {
-                                        match tx.send(Some(path_str.to_owned())) {
-                                           _ => (),
-                                        };
+                                        let _ = tx.send(Some(path_str.to_owned()));
                                     },
                                     None => {
-                                        match tx.send(None) {
-                                            _ => (),
-                                        };
+                                        let _ = tx.send(None);
                                     },
                                 }
                             }
@@ -367,9 +363,7 @@ fn parse_dir(dir_path: String, packages: Arc<Mutex<JsonValue>>, tx: Sender<Optio
         },
         _ => (),
     }
-    match tx.send(None) {
-        _ => (),
-    };
+    let _ = tx.send(None);
 }
 
 fn parse_import(path: &Path) -> String {

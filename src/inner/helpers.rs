@@ -171,12 +171,12 @@ pub fn remove_diff_packages(old_lock: &JsonValue, new_lock: &JsonValue, logger: 
     }
 }
 
-fn remove_package(dir_path: &str, logger: Logger) -> bool {
+pub fn remove_package(dir_path: &str, logger: Logger) -> bool {
     let pkg_path_buf: PathBuf = get_path_from_url(dir_path);
     let pkg_path = pkg_path_buf.as_path();
     match fs::remove_dir_all(pkg_path) {
         Ok(_) => {
-            logger.verbose("Delete package", dir_path);
+            logger.verbose("Remove package", dir_path);
             let mut parent = pkg_path.parent();
             while parent.is_some() {
                 match fs::remove_dir(parent.unwrap()) {
