@@ -1,0 +1,40 @@
+environment:
+  global:
+    RUST_VERSION: stable
+
+  matrix:
+    - TARGET: i686-pc-windows-msvc
+    - TARGET: x86_64-pc-windows-msvc
+
+build: false
+
+install:
+  - ps: >-
+      If ($Env:TARGET -eq 'x86_64-pc-windows-gnu') {
+        $Env:PATH += ';C:\msys64\mingw64\bin'
+      } ElseIf ($Env:TARGET -eq 'i686-pc-windows-gnu') {
+        $Env:PATH += ';C:\msys64\mingw32\bin'
+      }
+  - curl -sSf -o rustup-init.exe https://win.rustup.rs/
+  - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
+  - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
+  - rustc -Vv
+  - cargo -V
+
+test_script:
+  - cargo test --target %TARGET% -- --nocapture
+  - cargo build --release --target %TARGET%
+
+before_deploy:
+  - 7z a rubigo-%TARGET%.zip %APPVEYOR_BUILD_FOLDER%\target\%TARGET%\release\*.exe
+  - appveyor PushArtifact rubigo-%TARGET%.zip
+
+
+deploy:
+  artifact: rubigo-%TARGET%.zip
+  auth_token:
+    secure: 93nJ+rWEJDyGYR0iJ7AeJuUbzrZ2+YxjPT1AfJkBlJxkUMhjpVgKh5yKlrrLQMjq
+  description: ''
+  on:
+    appveyor_repo_tag: true
+  provider: GitHub

@@ -1,0 +1,46 @@
+language: rust
+sudo: false
+rust: stable
+
+env:
+  global:
+    - PROJECT_NAME=rubigo
+    - FILE_NAME=${PROJECT_NAME}-${TRAVIS_OS_NAME}-64bit.tar.gz
+
+script:
+  - cargo test -- --nocapture
+  - cargo build --release
+
+os:
+  - linux
+  - osx
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib; fi
+
+addons:
+  apt:
+    sources:
+      - kalakris-cmake
+    packages:
+      - cmake
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+
+branches:
+  only:
+    - /^v\d+\.\d+(\.\d+)?(-\S*)?$/
+
+before_deploy:
+  - tar czf "${FILE_NAME}" -C target/release "${PROJECT_NAME}"
+
+deploy:
+  provider: releases
+  api_key:
+    secure: Svr0w4Isp6u/2k2T9MJXmWNkt3C47CTmPfLmLcAWgCxn/zDUKnxrGGa4yEsQhY9KSvZ4R6CQVcy9+wtFC/HdcB54uSXkyhxUG8ENon+vHsLS5w0LfZ+1KfOKklLmYRdRXFn1yj0c6p5ywml1cE9uX02NUgMFcsvmdzu6P8NfyTyU5V+eyRI/83V9hSy4p7yAkRtVH7f9k0Ugf0HeawyOX2q7JiA31/RFzwav23a4LxrZMsn8Rr3cXkiHbhHzCw8NuUOFj0BTwlDhD1r1BXDjFYMA2CnJGWLEqPjEEQ4A8Id39iSECe00tDUfFnWIl84IClTNb2gQVQ+X2v+9d/5FleIKJXn7hurzH5MLT9z4tnO+bkL4Q75JsueSHxm97Jd0T4z5zJ8pq4h/qgcW6ygnhGANnq3CaLxPqZ/JA+7kWiHowCMNJhj+P/59QNxWra4vIDeb6X1tJBUPY/2uLFiSQNiP5i0wy0IwymTsn/xzBtcpWWCDCx9wQbO0TRS/96XgjuCDzqLW3coN+RA6c+aHtvfilHApnxvApVG5/2YItWyXJDXKf27IDCPUKXxvmHd55ZbKBnos5emtr85SNpyMLJBEOwwuNGphe+x+x2GrFE2sUELAeHB0VHsjdCYVGw40x1/xB8qNbiACL/xMmKSsSqWvjX6xeaolqwCs5HAg90M=
+  file: "${FILE_NAME}"
+  skip_cleanup: true
+  on:
+    tags: true
