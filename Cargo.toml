@@ -2,6 +2,12 @@
 name = "rubigo"
 version = "0.1.0"
 authors = ["Navid <yaa110@gmail.com>"]
+description = "Golang dependency tool and package manager"
+homepage = "https://github.com/yaa110/Rubigo"
+documentation = "https://github.com/yaa110/Rubigo"
+repository = "https://github.com/yaa110/Rubigo"
+readme = "README.md"
+license = "MIT"
 
 [dependencies]
 ansi_term = "0.9"
@@ -15,3 +21,9 @@ futures = "0.1"
 futures-cpupool = "0.1"
 semver = "0.6.0"
 regex = "0.2"
+
+[profile.release]
+debug = false
+lto = true
+debug-assertions = false
+panic = 'unwind'
