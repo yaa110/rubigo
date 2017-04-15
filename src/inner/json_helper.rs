@@ -10,6 +10,12 @@ pub const REPO_KEY: &'static str = "repo";
 
 pub const INFO_KEY: &'static str = "info";
 pub const NAME_KEY: &'static str = "name";
+pub const LICENSE_KEY: &'static str = "license";
+pub const HOMEPAGE_KEY: &'static str = "homepage";
+pub const AUTHORS_KEY: &'static str = "authors";
+pub const DESCRIPTION_KEY: &'static str = "description";
+pub const WEBSITE_KEY: &'static str = "website";
+pub const EMAIL_KEY: &'static str = "email";
 
 pub const PACKAGES_KEY: &'static str = "packages";
 pub const GIT_KEY: &'static str = "git";

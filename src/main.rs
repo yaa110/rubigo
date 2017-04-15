@@ -149,11 +149,7 @@ fn main() {
                 .takes_value(false))
             .about("Apply the changes of `rubigo.lock` to packages in `vendor` directory"))
         .subcommand(SubCommand::with_name("info")
-            .arg(Arg::with_name("edit")
-                .short("e")
-                .long("edit")
-                .help("Edit information about this Rubigo project")
-                .takes_value(false))
+            .visible_alias("about")
             .about("Display information about this Rubigo project"))
         .get_matches();
 
@@ -192,19 +188,7 @@ fn main() {
                 }
             }, get_matches.value_of("repository"), matches.is_present("no-prompt"), get_matches.is_present("global"), get_matches.is_present("local"), logger);
         },
-        Some("info") => {
-            if match matches.subcommand_matches("info") {
-                Some(args) => args.is_present("edit"),
-                None => {
-                    logger.fatal("unable to get argument of `info` sub command");
-                    return
-                },
-            } {
-                info::edit()
-            } else {
-                info::display()
-            }
-        },
+        Some("info") => info::display(&logger),
         Some("init") => project::init(logger),
         Some("reset") => project::reset(matches.is_present("no-prompt"), logger),
         Some("list") => {
