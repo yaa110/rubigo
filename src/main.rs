@@ -15,6 +15,8 @@ extern crate regex;
 
 mod inner;
 mod controller;
+#[cfg(test)]
+mod tests;
 
 use clap::{Arg, App, SubCommand, AppSettings};
 use std::process;

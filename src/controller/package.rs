@@ -11,7 +11,11 @@ use controller::project;
 use git2::{Repository, ResetType};
 use std::process;
 
-pub fn get(package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_global: bool, is_local: bool, logger: Logger) {
+pub fn get(mut package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_global: bool, is_local: bool, logger: Logger) {
+    if package_url.ends_with("/") || package_url.ends_with("\\") {
+        package_url = &package_url[..package_url.len() - 1];
+    }
+
     if !Path::new("rubigo.json").exists() {
         if no_prompt {
             project::init(logger);

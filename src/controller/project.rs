@@ -14,7 +14,7 @@ pub fn new(name: &str, is_lib: bool, logger: &Logger) {
     fn delete_new_project<T: Display>(err: T, path: &Path, current_dir: &Path, logger: &Logger) {
         match remove_dir_all(path) {
             Ok(_) => logger.verbose("Delete project", current_dir.to_str().unwrap_or("unknown")),
-            Err(e) => logger.error(e),
+            Err(e) => logger.error(format!("unable to delete `{}` directory: {}", path.to_str().unwrap_or("unknown"), e)),
         }
         logger.fatal(err)
     }
