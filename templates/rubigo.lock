@@ -1,0 +1,15 @@
+{
+  "git": [
+    {
+      "import": "<:string>",
+      "repo": "<:string> [optional]",
+      "version": "<git-revision:string>"
+    }
+  ],
+  "local": [
+    "<package-name:string>"
+  ],
+  "global": [
+    "<package-import:string>"
+  ]
+}

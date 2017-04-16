@@ -63,13 +63,13 @@ fn main() {
                 .long("bin")
                 .help("Create a new executable project (Default)")
                 .takes_value(false))
-            .about("Create a new Rubigo project"))
+            .about("Create a new Golang project"))
         .subcommand(SubCommand::with_name("init")
             .visible_alias("start")
             .about("Initialize Rubigo project in an existing directory"))
         .subcommand(SubCommand::with_name("reset")
             .visible_alias("sync")
-            .about("Update `rubigo.json` and `rubigo.lock` to the packages in `vendor` directory"))
+            .about("Update `rubigo.json` and `rubigo.lock` to the list of packages in `vendor` directory"))
         .subcommand(SubCommand::with_name("get")
             .visible_alias("add")
             .arg(Arg::with_name("package")
@@ -101,7 +101,7 @@ fn main() {
             .arg(Arg::with_name("package")
                 .help("The import path of package")
                 .required(true))
-            .about("Remove a package from dependencies and `vendor` directory"))
+            .about("Remove a package from manifest and `vendor` directory"))
         .subcommand(SubCommand::with_name("update")
             .visible_alias("up")
             .arg(Arg::with_name("clean")
@@ -152,7 +152,7 @@ fn main() {
             .about("Apply the changes of `rubigo.lock` to packages in `vendor` directory"))
         .subcommand(SubCommand::with_name("info")
             .visible_alias("about")
-            .about("Display information about this Rubigo project"))
+            .about("Display the information about this Rubigo project"))
         .get_matches();
 
     let logger = Logger::new(if matches.is_present("verbose") {

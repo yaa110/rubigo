@@ -38,3 +38,7 @@ deploy:
   on:
     appveyor_repo_tag: true
   provider: GitHub
+
+notifications:
+  - provider: Email
+    on_build_success: false

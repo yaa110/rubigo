@@ -1,0 +1,31 @@
+{
+  "info": {
+    "name": "<:string>",
+    "import": "<:string>",
+    "description": "<:string>",
+    "homepage": "<:string>",
+    "license": "<:string>",
+    "authors": [
+      {
+        "name": "<:string>",
+        "email": "<:string>",
+        "website": "<:string>"
+      }
+    ]
+  },
+  "packages": {
+    "git": [
+      {
+        "import": "<:string>",
+        "repo": "<:string> [optional]",
+        "version": "<git-revision:string>"
+      }
+    ],
+    "local": [
+      "<package-name:string>"
+    ],
+    "global": [
+      "<package-import:string>"
+    ]
+  }
+}
