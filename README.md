@@ -1,6 +1,6 @@
 Rubigo
 ======
-[![Build Status](https://travis-ci.org/yaa110/Rubigo.svg?branch=master)](https://travis-ci.org/yaa110/Rubigo) [![Build status](https://ci.appveyor.com/api/projects/status/iqapg43k4pi85v43?svg=true)](https://ci.appveyor.com/project/yaa110/rubigo) [![License](http://img.shields.io/:license-mit-blue.svg)](https://github.com/yaa110/Rubigo/blob/master/LICENSE) [![Version](https://img.shields.io/badge/version-1.0.0--beta-blue.svg)](https://github.com/yaa110/Rubigo/releases)
+[![Build Status](https://travis-ci.org/yaa110/rubigo.svg?branch=master)](https://travis-ci.org/yaa110/rubigo) [![Build status](https://ci.appveyor.com/api/projects/status/iqapg43k4pi85v43?svg=true)](https://ci.appveyor.com/project/yaa110/rubigo) [![License](http://img.shields.io/:license-mit-blue.svg)](https://github.com/yaa110/Rubigo/blob/master/LICENSE) [![Version](https://img.shields.io/badge/version-1.0.0--beta-blue.svg)](https://github.com/yaa110/Rubigo/releases)
 
 **Rubigo** is a dependency tool and package manager for [Golang](https://golang.org/), written in [Rust](https://www.rust-lang.org/en-US/). Rubigo uses `vendor` directory (starting from Go 1.5) to install packages, however it is possible to add packages globally (in `GOPATH/src` directory) or make a local package in `vendor` directory. Rubigo respects to manual changes in `vendor` directory and does not delete custom packages. Currently, Rubigo only supports `git` repositories. This source code is licensed under MIT license that can be found in the LICENSE file.
 
