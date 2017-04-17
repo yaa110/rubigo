@@ -10,7 +10,6 @@ readme = "README.md"
 license = "MIT"
 
 [dependencies]
-ansi_term = "0.9"
 git2 = "0.6"
 json = "0.11"
 clap = "2.23"

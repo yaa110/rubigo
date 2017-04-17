@@ -6,7 +6,6 @@ use json::JsonValue;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
 use inner::logger::Logger;
-use ansi_term::Color::Yellow;
 use inner::{git_helper, go, helpers, json_helper};
 
 pub const VENDOR_DIR: &'static str = "vendor";
@@ -167,7 +166,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
         match remove_dir_all(pkg_path) {
             Ok(_) => logger.verbose("Clean package", pkg_path.to_str().unwrap_or("unknown")),
             Err(e) => {
-                logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                logger.error(format!("{} {}", pkg_import, e));
                 let _ = tx.send(mut_pkg);
                 return
             }
@@ -181,7 +180,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
                 repo
             },
             Err(e) => {
-                logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                logger.error(format!("{} {}", pkg_import, e));
                 let _ = tx.send(mut_pkg);
                 return
             },
@@ -225,7 +224,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
                                                             _ => continue,
                                                         }
                                                         match repo.reset(&remote_object, ResetType::Hard, None) {
-                                                            Ok(_) => logger.verbose("Update branch", format!("{} {}", Yellow.paint(pkg_import), branch.name().unwrap_or(None).unwrap_or("unknown"))),
+                                                            Ok(_) => logger.verbose("Update branch", format!("{} {}", pkg_import, branch.name().unwrap_or(None).unwrap_or("unknown"))),
                                                             _ => continue,
                                                         }
                                                     },
@@ -236,25 +235,25 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
                                         }
                                     },
                                     Err(e) => {
-                                        logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                                        logger.error(format!("{} {}", pkg_import, e));
                                         let _ = tx.send(mut_pkg);
                                         return
                                     },
                                 },
                                 Err(e) => {
-                                    logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                                    logger.error(format!("{} {}", pkg_import, e));
                                     let _ = tx.send(mut_pkg);
                                     return
                                 },
                             },
                             None => {
-                                logger.error(format!("{} unable to get remote name of", Yellow.paint(pkg_import)));
+                                logger.error(format!("{} unable to get remote name of", pkg_import));
                                 let _ = tx.send(mut_pkg);
                                 return
                             },
                         },
                         Err(e) => {
-                            logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                            logger.error(format!("{} {}", pkg_import, e));
                             let _ = tx.send(mut_pkg);
                             return
                         },
@@ -263,7 +262,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
                 repo
             },
             Err(e) => {
-                logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+                logger.error(format!("{} {}", pkg_import, e));
                 let _ = tx.send(mut_pkg);
                 return
             }
@@ -273,7 +272,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
     let mut version = match package[json_helper::VERSION_KEY].as_str() {
         Some(version_str) => version_str.to_owned(),
         None => {
-            logger.error(format!("{} unable to get `version` value", Yellow.paint(pkg_import)));
+            logger.error(format!("{} unable to get `version` value", pkg_import));
             let _ = tx.send(mut_pkg);
             return
         },
@@ -298,7 +297,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
     match repo.set_head_detached(version_object.id()) {
         Ok(_) => (),
         Err(e) => {
-            logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+            logger.error(format!("{} {}", pkg_import, e));
             let _ = tx.send(mut_pkg);
             return
         },
@@ -307,7 +306,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
     match repo.reset(&version_object, ResetType::Hard, None){
         Ok(_) => (),
         Err(e) => {
-            logger.error(format!("{} {}", Yellow.paint(pkg_import), e));
+            logger.error(format!("{} {}", pkg_import, e));
             let _ = tx.send(mut_pkg);
             return
         },

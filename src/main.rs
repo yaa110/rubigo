@@ -2,7 +2,6 @@
 // --------------------------------
 
 extern crate clap;
-extern crate ansi_term;
 extern crate git2;
 #[macro_use]
 extern crate json;
