@@ -1,6 +1,6 @@
 Rubigo
 ======
-[![Build Status](https://travis-ci.org/yaa110/rubigo.svg?branch=master)](https://travis-ci.org/yaa110/rubigo) [![Build status](https://ci.appveyor.com/api/projects/status/iqapg43k4pi85v43?svg=true)](https://ci.appveyor.com/project/yaa110/rubigo) [![License](http://img.shields.io/:license-mit-blue.svg)](https://github.com/yaa110/Rubigo/blob/master/LICENSE) [![Version](https://img.shields.io/badge/version-1.0.0--beta-blue.svg)](https://github.com/yaa110/Rubigo/releases)
+[![Build Status](https://travis-ci.org/yaa110/rubigo.svg?branch=master)](https://travis-ci.org/yaa110/rubigo) [![Build status](https://ci.appveyor.com/api/projects/status/gaj2qh18963d0hp1?svg=true)](https://ci.appveyor.com/project/yaa110/rubigo) [![License](http://img.shields.io/:license-mit-blue.svg)](https://github.com/yaa110/rubigo/blob/master/LICENSE) [![Version](https://img.shields.io/badge/version-1.0.0--beta-blue.svg)](https://github.com/yaa110/rubigo/releases)
 
 **Rubigo** is a dependency tool and package manager for [Golang](https://golang.org/), written in [Rust](https://www.rust-lang.org/en-US/). Rubigo uses `vendor` directory (starting from Go 1.5) to install packages, however it is possible to add packages globally (in `GOPATH/src` directory) or make a local package in `vendor` directory. Rubigo respects to manual changes in `vendor` directory and does not delete custom packages. Currently, Rubigo only supports `git` repositories. This source code is licensed under MIT license that can be found in the LICENSE file.
 
@@ -15,7 +15,7 @@ Rubigo
 Rubigo creates two JSON (manifest) files (`rubigo.json` and `rubigo.lock`) inside the directory of Golang project. The `rubigo.json` contains the information of the project and packages which should be installed and maintained, and `rubigo.lock` contains the information of packages which have already been installed in `vendor` directory or globally in `GOPATH/src`. You could edit both files manually or using Rubigo sub-commands, then you can apply them to project's dependencies. Also, it is feasible to start Rubigo in an existing project.
 
 ## How to install
-You can download a pre-built binary from [releases](https://github.com/yaa110/Rubigo/releases) page or you can build it manually as following:
+You can download a pre-built binary from [releases](https://github.com/yaa110/rubigo/releases) page or you can build it manually as following:
 1. Install [Rust](https://www.rust-lang.org/en-US/) programming language.
   * On Linux and Mac OS: install `cmake`, `libcurl4-openssl-dev`, `libelf-dev`, `libssl-dev` and `libdw-dev`.
   * On Windows: install `cmake`, `Visual Studio C++`.
@@ -44,7 +44,7 @@ You can download a pre-built binary from [releases](https://github.com/yaa110/Ru
 - **--version, -V**: Displays the version of Rubigo.
 
 ## The manifest format
-You can find the template of [rubigo.json](https://github.com/yaa110/Rubigo/blob/master/templates/rubigo.json) and [rubigo.lock](https://github.com/yaa110/Rubigo/blob/master/templates/rubigo.lock) files in `templates` directory. Both files have a JSON format with the following objects:
+You can find the template of [rubigo.json](https://github.com/yaa110/rubigo/blob/master/templates/rubigo.json) and [rubigo.lock](https://github.com/yaa110/rubigo/blob/master/templates/rubigo.lock) files in `templates` directory. Both files have a JSON format with the following objects:
 
 - **info**: Contains the (optional) information about the project. Only `rubigo.json` contains this object.
   * **name**: The name of project
@@ -61,8 +61,8 @@ You can find the template of [rubigo.json](https://github.com/yaa110/Rubigo/blob
     * **import**: The import path of package
     * **repo**: A custom url to clone the repository
     * **version**: The version (a git revision or semantic version) of the project. For more information about the semantic rules, please check [semver](https://github.com/steveklabnik/semver) documentation.
-  * **local**: An array of local packages in `vendor` directory.
-  * **global**: An array of local packages in `GOPATH/src` directory.
+  * **local**: An array of local packages in `vendor` directory.
+  * **global**: An array of global packages in `GOPATH/src` directory.
 
 ## Contribution
 Please feel free to open an issue to report a bug or ask a question, or open a pull request to debug or add more features to Rubigo.
