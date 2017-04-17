@@ -32,7 +32,7 @@ before_deploy:
 deploy:
   artifact: rubigo-%TARGET%.zip
   auth_token:
-    secure: 93nJ+rWEJDyGYR0iJ7AeJuUbzrZ2+YxjPT1AfJkBlJxkUMhjpVgKh5yKlrrLQMjq
+    secure: DihzHIGlS+25iO7vCfIFKrFvzpn0tSIxEckmtXbo41JeBVelRzKP85xGftwklmQ9
   description: ''
   on:
     appveyor_repo_tag: true
