@@ -22,7 +22,6 @@ install:
   - cargo -V
 
 test_script:
-  - cargo test --target %TARGET% -- --nocapture
   - cargo build --release --target %TARGET%
 
 before_deploy:

@@ -185,6 +185,13 @@ pub fn get(mut package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_gl
             logger.fatal(format!("the package `{}` already exists in `vendor` directory", pkg_import));
             return
         }
+        match create_dir_all(pkg_path) {
+            Ok(_) => logger.verbose("Create directory", &pkg_import),
+            Err(e) => {
+                logger.fatal(e);
+                return
+            }
+        }
 
         let pkg_import_url = helpers::modify_golang_org(pkg_import.as_str());
         let repo = match Repository::clone(match repo_url {

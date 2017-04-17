@@ -174,6 +174,14 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
     }
 
     let repo = if should_clean || !pkg_path.is_dir() {
+        match create_dir_all(pkg_path) {
+            Ok(_) => logger.verbose("Create directory", &pkg_import),
+            Err(e) => {
+                logger.fatal(e);
+                return
+            }
+        }
+
         match Repository::clone(repo_url, pkg_path) {
             Ok(repo) => {
                 logger.verbose("Clone repository", pkg_import);
