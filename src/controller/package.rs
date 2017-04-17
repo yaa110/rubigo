@@ -186,7 +186,7 @@ pub fn get(mut package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_gl
             return
         }
 
-        let pkg_import_url = format!("http://{}", pkg_import);
+        let pkg_import_url = helpers::modify_golang_org(pkg_import.as_str());
         let repo = match Repository::clone(match repo_url {
             Some(url) => {
                 pkg_json[json_helper::REPO_KEY] = url.into();

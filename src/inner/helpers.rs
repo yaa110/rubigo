@@ -9,6 +9,8 @@ use inner::vendor::VENDOR_DIR;
 use git2::Repository;
 use json::JsonValue;
 use inner::logger::Logger;
+use curl::easy::Easy;
+use std::str;
 
 pub fn get_current_dir() -> String {
     match fs::canonicalize(Path::new(Component::CurDir.as_os_str())) {
@@ -191,4 +193,47 @@ pub fn remove_package(dir_path: &str, logger: Logger) -> bool {
         },
     }
     true
+}
+
+pub fn modify_golang_org(repo_url: &str) -> String {
+    if repo_url.starts_with("golang.org/x") {
+        let mut buf = String::new();
+        {
+            let mut handle = Easy::new();
+            match handle.url(repo_url) {
+                Ok(_) => (),
+                _ => return format!("http://{}", repo_url),
+            };
+            let mut transfer = handle.transfer();
+            match transfer.write_function(|data| {
+                match str::from_utf8(data) {
+                    Ok(s) => {
+                        buf.push_str(s);
+                        Ok(data.len())
+                    },
+                    _ => Ok(0),
+                }
+            }) {
+                Ok(_) => (),
+                _ => return format!("http://{}", repo_url),
+            };
+            match transfer.perform() {
+                Ok(_) => (),
+                _ => return format!("http://{}", repo_url),
+            };
+        }
+        let re = match Regex::new(r#".*go-import.* git ([^'"]*)"?'?>"#) {
+            Ok(r) => r,
+            _ => return format!("http://{}", repo_url),
+        };
+        let cap = match re.captures(buf.as_str()) {
+            Some(c) => c,
+            None => return format!("http://{}", repo_url),
+        };
+        return match cap.get(1) {
+            Some(s) => s.as_str().to_owned(),
+            _ => format!("http://{}", repo_url),
+        }
+    }
+    format!("http://{}", repo_url)
 }

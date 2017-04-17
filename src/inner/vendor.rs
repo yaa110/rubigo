@@ -155,7 +155,7 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
     });
     let pkg_import = pkg_import_raw.as_str();
 
-    let http_import = format!("http://{}", pkg_import);
+    let http_import = helpers::modify_golang_org(pkg_import);
     let repo_url = match package[json_helper::REPO_KEY].as_str() {
         Some(repo_str) => repo_str,
         None => http_import.as_str(),

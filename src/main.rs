@@ -12,6 +12,7 @@ extern crate futures;
 extern crate futures_cpupool;
 extern crate semver;
 extern crate regex;
+extern crate curl;
 
 mod inner;
 mod controller;
