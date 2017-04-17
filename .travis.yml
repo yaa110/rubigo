@@ -35,6 +35,7 @@ branches:
     - master
 
 before_deploy:
+  - strip "target/release/${PROJECT_NAME}"
   - tar czf "${FILE_NAME}" -C target/release "${PROJECT_NAME}"
 
 deploy:
