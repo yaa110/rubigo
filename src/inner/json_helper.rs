@@ -59,10 +59,10 @@ pub fn read(json_path: &Path) -> io::Result<JsonValue> {
     }
 }
 
-pub fn remove_package_from_array(pkg_import: &str, json_array: &JsonValue, is_local: bool) -> JsonValue {
+pub fn remove_package_from_array(pkg_import: &str, json_array: &JsonValue, is_str_array: bool) -> JsonValue {
     let mut result_array = json_array.clone();
     for i in 0..json_array.len() {
-        let pkg_name = if is_local {
+        let pkg_name = if is_str_array {
             match json_array[i].as_str() {
                 Some(name) => name,
                 None => continue,

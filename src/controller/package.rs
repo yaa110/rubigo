@@ -332,16 +332,18 @@ pub fn remove(package_dir: &str, logger: Logger) {
     };
 
     let new_json_git = json_helper::remove_package_from_array(package_dir, &json_content[json_helper::PACKAGES_KEY][json_helper::GIT_KEY], false);
-    let new_json_local = json_helper::remove_package_from_array(package_dir, &json_content[json_helper::PACKAGES_KEY][json_helper::LOCAL_KEY], true);
     let new_lock_git = json_helper::remove_package_from_array(package_dir, &lock_content[json_helper::GIT_KEY], false);
+    let new_json_local = json_helper::remove_package_from_array(package_dir, &json_content[json_helper::PACKAGES_KEY][json_helper::LOCAL_KEY], true);
     let new_lock_local = json_helper::remove_package_from_array(package_dir, &lock_content[json_helper::LOCAL_KEY], true);
+    let new_json_global = json_helper::remove_package_from_array(package_dir, &json_content[json_helper::PACKAGES_KEY][json_helper::GLOBAL_KEY], true);
+    let new_lock_global = json_helper::remove_package_from_array(package_dir, &lock_content[json_helper::GLOBAL_KEY], true);
 
     match json_helper::write("rubigo.json", "", Some(object!{
         json_helper::INFO_KEY => json_content[json_helper::INFO_KEY].clone(),
         json_helper::PACKAGES_KEY => object!{
             json_helper::GIT_KEY => new_json_git,
             json_helper::LOCAL_KEY => new_json_local,
-            json_helper::GLOBAL_KEY => json_content[json_helper::PACKAGES_KEY][json_helper::GLOBAL_KEY].clone()
+            json_helper::GLOBAL_KEY => new_json_global
         }
     })) {
         Ok(_) => logger.verbose("Update file", "rubigo.json"),
@@ -354,7 +356,7 @@ pub fn remove(package_dir: &str, logger: Logger) {
     match json_helper::write("rubigo.lock", "", Some(object!{
             json_helper::GIT_KEY => new_lock_git,
             json_helper::LOCAL_KEY => new_lock_local,
-            json_helper::GLOBAL_KEY => lock_content[json_helper::GLOBAL_KEY].clone()
+            json_helper::GLOBAL_KEY => new_lock_global
     })) {
         Ok(_) => logger.verbose("Update file", "rubigo.lock"),
         Err(e) => {
