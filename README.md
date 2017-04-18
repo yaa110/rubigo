@@ -61,8 +61,8 @@ You can find the template of [rubigo.json](https://github.com/yaa110/rubigo/blob
     * **import**: The import path of package
     * **repo**: A custom url to clone the repository
     * **version**: The version (a git revision or semantic version) of the project. For more information about the semantic rules, please check [semver](https://github.com/steveklabnik/semver) documentation.
-  * **local**: An array of local packages in `vendor` directory.
-  * **global**: An array of global packages in `GOPATH/src` directory.
+  * **local**: An array of local packages in `vendor` directory.
+  * **global**: An array of global packages in `GOPATH/src` directory.
 
 ## Contribution
 Please feel free to open an issue to report a bug or ask a question, or open a pull request to debug or add more features to Rubigo.
