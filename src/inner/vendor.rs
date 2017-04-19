@@ -152,9 +152,13 @@ pub fn update_package(package: JsonValue, should_clean: bool, is_apply: bool, tx
             return
         },
     });
-    let pkg_import = pkg_import_raw.as_str();
 
-    let http_import = helpers::modify_golang_org(pkg_import);
+    let (http_import, modified_pkg_path) = helpers::modify_golang_org(pkg_import_raw.as_str());
+    let modified_import_path = match modified_pkg_path {
+        Some(p) => p,
+        None => pkg_import_raw,
+    };
+    let pkg_import = modified_import_path.as_str();
     let repo_url = match package[json_helper::REPO_KEY].as_str() {
         Some(repo_str) => repo_str,
         None => http_import.as_str(),

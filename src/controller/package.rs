@@ -51,7 +51,11 @@ pub fn get(mut package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_gl
         }
     });
 
-    let pkg_import = helpers::strip_url_scheme(package_url);
+    let mut pkg_import = helpers::strip_url_scheme(package_url);
+    let (pkg_import_url, modified_pkg_path) = helpers::modify_golang_org(pkg_import.as_str());
+    if modified_pkg_path.is_some() {
+        pkg_import = modified_pkg_path.unwrap();
+    }
     let pkg_path_buf = helpers::get_path_from_url(&pkg_import);
 
     let json_packages_object;
@@ -193,7 +197,6 @@ pub fn get(mut package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_gl
             }
         }
 
-        let pkg_import_url = helpers::modify_golang_org(pkg_import.as_str());
         let repo = match Repository::clone(match repo_url {
             Some(url) => {
                 pkg_json[json_helper::REPO_KEY] = url.into();

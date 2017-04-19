@@ -195,14 +195,14 @@ pub fn remove_package(dir_path: &str, logger: Logger) -> bool {
     true
 }
 
-pub fn modify_golang_org(repo_url: &str) -> String {
+pub fn modify_golang_org(repo_url: &str) -> (String, Option<String>) {
     if repo_url.starts_with("golang.org/x") {
         let mut buf = String::new();
         {
             let mut handle = Easy::new();
             match handle.url(repo_url) {
                 Ok(_) => (),
-                _ => return format!("http://{}", repo_url),
+                _ => return (format!("http://{}", repo_url), None),
             };
             let mut transfer = handle.transfer();
             match transfer.write_function(|data| {
@@ -215,25 +215,40 @@ pub fn modify_golang_org(repo_url: &str) -> String {
                 }
             }) {
                 Ok(_) => (),
-                _ => return format!("http://{}", repo_url),
+                _ => return (format!("http://{}", repo_url), None),
             };
             match transfer.perform() {
                 Ok(_) => (),
-                _ => return format!("http://{}", repo_url),
+                _ => return (format!("http://{}", repo_url), None),
             };
         }
         let re = match Regex::new(r#".*go-import.* git ([^'"]*)"?'?>"#) {
             Ok(r) => r,
-            _ => return format!("http://{}", repo_url),
+            _ => return (format!("http://{}", repo_url), None),
         };
         let cap = match re.captures(buf.as_str()) {
             Some(c) => c,
-            None => return format!("http://{}", repo_url),
+            None => return (format!("http://{}", repo_url), None),
         };
         return match cap.get(1) {
-            Some(s) => s.as_str().to_owned(),
-            _ => format!("http://{}", repo_url),
+            Some(s) => {
+                let url = s.as_str();
+                let re = match Regex::new(r#"[^/]*//[^/]*/(.*)"#) {
+                    Ok(r) => r,
+                    _ => return (url.to_owned(), None),
+                };
+                let cap = match re.captures(url) {
+                    Some(c) => c,
+                    None => return (url.to_owned(), None),
+                };
+                match cap.get(1) {
+                    Some(p) => return (url.to_owned(), Some(format!("golang.org/x/{}", p.as_str()))),
+                    None => (),
+                };
+                (url.to_owned(), None)
+            },
+            _ => (format!("http://{}", repo_url), None),
         }
     }
-    format!("http://{}", repo_url)
+    (format!("http://{}", repo_url), None)
 }
