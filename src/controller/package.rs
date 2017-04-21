@@ -51,12 +51,8 @@ pub fn get(mut package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_gl
         }
     });
 
-    let mut pkg_import = helpers::strip_url_scheme(package_url);
-    let (pkg_import_url, modified_pkg_path) = helpers::modify_golang_org(pkg_import.as_str());
-    if modified_pkg_path.is_some() {
-        pkg_import = modified_pkg_path.unwrap();
-    }
-    let pkg_path_buf = helpers::get_path_from_url(&pkg_import);
+    let pkg_import = helpers::strip_url_scheme(package_url);
+    let mut pkg_path_buf = helpers::get_path_from_url(&pkg_import);
 
     let json_packages_object;
     let lock_packages_object;
@@ -184,17 +180,30 @@ pub fn get(mut package_url: &str, repo_url: Option<&str>, no_prompt: bool, is_gl
             json_helper::IMPORT_KEY => pkg_import.clone()
         };
 
+        let (pkg_import_url, modified_pkg_path) = helpers::modify_golang_org(pkg_import.as_str());
+        let modified_pkg_import = if modified_pkg_path.is_some() {
+            modified_pkg_path.unwrap()
+        } else {
+            pkg_import.clone()
+        };
+        pkg_path_buf = helpers::get_path_from_url(&modified_pkg_import);
         let pkg_path = pkg_path_buf.as_path();
         if pkg_path.exists() {
-            logger.fatal(format!("the package `{}` already exists in `vendor` directory", pkg_import));
-            return
+            logger.error(format!("the package `{}` already exists in `vendor` directory", pkg_import));
+            match remove_dir_all(pkg_path) {
+                Ok(_) => logger.verbose("Delete directory", &pkg_import),
+                Err(e) => {
+                    logger.fatal(e);
+                    return
+                },
+            }
         }
         match create_dir_all(pkg_path) {
             Ok(_) => logger.verbose("Create directory", &pkg_import),
             Err(e) => {
                 logger.fatal(e);
                 return
-            }
+            },
         }
 
         let repo = match Repository::clone(match repo_url {

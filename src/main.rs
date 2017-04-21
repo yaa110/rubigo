@@ -23,7 +23,7 @@ use std::process;
 use controller::*;
 use inner::logger::{Logger, Verbosity};
 
-const VERSION: &'static str = "1.0.1-beta";
+const VERSION: &'static str = "1.0.2-beta";
 
 fn main() {
     let matches = App::new("Rubigo")
