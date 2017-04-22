@@ -19,10 +19,7 @@ You can download a pre-built binary from [releases](https://github.com/yaa110/ru
 1. Install [Rust](https://www.rust-lang.org/en-US/) programming language.
   * On Linux and Mac OS: install `cmake`, `libcurl4-openssl-dev`, `libelf-dev`, `libssl-dev` and `libdw-dev`.
   * On Windows: install `cmake`, `Visual Studio C++`.
-2. Clone Rubigo using `git clone https://github.com/yaa110/Rubigo.git` or download the [ZIP file](https://github.com/yaa110/Rubigo/archive/master.zip).
-1. Navigate to Rubigo directory using `cd Rubigo`.
-1. Run cargo to build the project using `cargo build --release`.
-1. After a successful build, you can find the executable binary in `target/release` directory.
+2. Use Rust's package manager `cargo` to install the application: `cargo install --git https://github.com/yaa110/rubigo.git`
 
 ## Sub-commands
 - **init, start**: Initializes Rubigo project in an existing directory, e.g. `rubigo init`. This sub-command searches the `vendor` directory for packages which has already been installed.
