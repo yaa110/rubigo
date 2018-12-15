@@ -1,6 +1,6 @@
 [package]
 name = "rubigo"
-version = "1.0.3"
+version = "1.0.4"
 authors = ["Navid <yaa110@gmail.com>"]
 description = "Golang dependency tool and package manager"
 homepage = "https://github.com/yaa110/Rubigo"
